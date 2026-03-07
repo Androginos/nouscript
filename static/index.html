@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NouScript</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ff4444' fill-rule='evenodd'><path clip-rule='evenodd' d='M11.981.009c.226-.012.453-.011.679 0 .247.01.495.024.74.062.401.064.798.157 1.19.273.463.138.92.299 1.356.511a7.31 7.31 0 012.948 2.642c.292.469.536.963.739 1.479.219.556.446 1.11.623 1.683.204.654.329 1.326.458 1.997.097.504.182 1.01.29 1.511.156.722.329 1.44.494 2.16.186.812.4 1.615.63 2.415.102.355.193.713.282 1.072.11.436.202.876.254 1.323.031.278.066.557.073.837a7.56 7.56 0 01-.017.88c-.037.413-.1.818-.226 1.212a5.017 5.017 0 01-.915 1.649c.2-.138.373-.307.531-.49.4-.46.721-.973.975-1.529a3.59 3.59 0 00.325-1.72c-.024-.424-.097-.834-.3-1.213.107.13.22.258.315.398.33.494.46 1.052.486 1.64a3.75 3.75 0 01-.47 1.97c-.36.655-.887 1.14-1.526 1.506-.193.111-.394.21-.595.308-.157.078-.248.211-.318.365a.522.522 0 00-.033.406c-.005.077-.077.155-.14.162-.054.006-.125-.043-.15-.116a1.206 1.206 0 01-.06-.233c-.04-.314-.155-.6-.308-.87a3.906 3.906 0 00-.73-.91 2.129 2.129 0 00-.897-.524 4.093 4.093 0 00-.692-.131c.18.06.363.11.538.18.434.173.82.43 1.18.728.308.255.58.543.794.884.098.155.186.315.227.496.027.123.042.25.067.375.013.062-.002.109-.053.144-.047.033-.122.034-.163-.01a.455.455 0 01-.08-.14 7.314 7.314 0 00-1.501-1.889c-.376-.114-.753-.203-1.15-.154-.213.025-.427.032-.64.053a1.6 1.6 0 00-.736.278 5.14 5.14 0 00-.834.72c-.329.342-.642.699-.955 1.055-.136.155-.264.319-.314.531a.096.096 0 01-.09.076h-.31c-.046 0-.082-.048-.072-.094.023-.108.045-.216.07-.324.075-.325.19-.635.368-.917.28-.435.571-.834.996-1.135.283-.204.584-.378.89-.55-.162.043-.325.084-.485.134-.402.124-.764.33-1.11.566-.147.1-.298.193-.414.333a7.314 7.314 0 00-1.07 1.767.075.075 0 01-.072.056h-.494c-.04 0-.062-.051-.036-.082.123-.14.246-.282.377-.415.275-.281.58-.532.777-.884.238-.333.54-.607.818-.902.082-.086.175-.16.26-.24-.248.144-.494.292-.743.433-.408.23-.825.439-1.209.711-.281.2-.591.358-.889.533-.111.096-.227.19-.328.296-.148.157-.284.325-.425.488-.125.143-.25.286-.373.431A.153.153 0 019.89 24H8.762c.028-.09.085-.172.083-.28-.091-.018-.162.001-.212.077 0 0-.071-.088-.14-.178-.176.09-.352.181-.527.274a.363.363 0 01-.168.042H5.202c.21-.178.402-.374.558-.605.335-.496.538-1.047.667-1.629a1.943 1.943 0 01-.334.415c-.28.258-.59.448-.983.464-.297.012-.588 0-.865-.127-.46-.21-.722-.57-.794-1.072A3.513 3.513 0 011.97 20.6a2.286 2.286 0 01-.808-1.13 3.569 3.569 0 01-.16-1.245c.033.153.059.308.096.46.086.355.257.664.516.92.258.256.571.419.91.532.358.118.717.138 1.07-.016a1.89 1.89 0 00.621-.452c.328-.348.533-.76.648-1.223-.284.502-.679.887-1.196 1.135-.351.17-.718.255-1.11.159a1.607 1.607 0 01-.971-.64 2.006 2.006 0 01-.368-.924 2.903 2.903 0 01.02-.886c.05-.439.466-1.17.742-1.271a1.901 1.901 0 00-.05.82c.033.212.09.416.204.6.147.236.346.407.62.465a.576.576 0 00.386-.131c.164-.128.282-.292.366-.481.168-.375.24-.777.309-1.179.05-.296.093-.594.133-.893.039-.281.071-.563.104-.845l.074-.696c.024-.228.052-.455.076-.683l.069-.683.034-.42.037-.417c.022-.25.041-.5.065-.748a2.46 2.46 0 01-.492-.418c-.1-.109-.188-.228-.282-.342a2.084 2.084 0 00.275.597c.06.092.131.176.196.265a2.71 2.71 0 01-1.287-.819c-.435-.487-.656-1.076-.71-1.723a5.206 5.206 0 01.014-1.06c.072-.602.22-1.186.45-1.745.155-.376.338-.741.526-1.102.205-.393.466-.75.765-1.076.512-.559 1.104-1.024 1.726-1.448.717-.49 1.478-.898 2.277-1.233C8.244.828 8.767.632 9.31.494c.655-.166 1.31-.33 1.982-.415.229-.03.458-.058.688-.07z'/></svg>">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0f0f11;--surface:#1a1a1f;--surface-hover:#222228;
+      --border:#2a2a32;--text:#e4e4e7;--text-muted:#8b8b96;
+      --accent:#ff4444;--accent-soft:rgba(255,68,68,.12);
+      --green:#22c55e;--radius:12px;
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center}
+
+    header{width:100%;padding:28px 0;text-align:center;border-bottom:1px solid var(--border);background:linear-gradient(180deg,rgba(255,68,68,.06) 0%,transparent 100%)}
+    header h1{font-size:1.7rem;font-weight:700;display:inline-flex;align-items:center;gap:10px;color:#fff;text-shadow:0 0 14px rgba(255,68,68,.45),0 0 45px rgba(255,68,68,.12)}
+    header h1 svg{flex-shrink:0;filter:drop-shadow(0 0 6px rgba(255,68,68,.4))}
+    header p{color:rgba(255,255,255,.55);font-size:.88rem;margin-top:8px;line-height:1.5;text-shadow:0 0 10px rgba(255,255,255,.08),0 0 30px rgba(255,255,255,.03)}
+    header p br+br{display:none}
+
+    @keyframes subtle-glow{0%,100%{text-shadow:0 0 14px rgba(255,68,68,.45),0 0 45px rgba(255,68,68,.12)}50%{text-shadow:0 0 22px rgba(255,68,68,.6),0 0 60px rgba(255,68,68,.18)}}
+    header h1{animation:subtle-glow 4s ease-in-out infinite}
+
+    main{width:100%;max-width:760px;padding:32px 20px 64px;display:flex;flex-direction:column;gap:20px}
+
+    /* Card */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px}
+
+    /* Options row */
+    .options-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+    .options-row label{font-size:.8rem;color:var(--text-muted);display:flex;flex-direction:column;gap:4px}
+    .options-row select{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.85rem;outline:none;cursor:pointer}
+    .options-row select:focus{border-color:var(--accent)}
+
+    /* Mode toggle */
+    .mode-toggle{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+    .mode-toggle button{flex:1;padding:8px 16px;border:none;background:transparent;color:var(--text-muted);font-size:.85rem;font-weight:500;cursor:pointer;transition:all .2s}
+    .mode-toggle button.active{background:var(--accent);color:#fff}
+
+    /* Input row */
+    .input-row{display:flex;gap:10px;margin-top:14px}
+    .input-row input{flex:1;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.95rem;outline:none;transition:border-color .2s}
+    .input-row input:focus{border-color:var(--accent);box-shadow:0 0 8px rgba(255,68,68,.15)}
+    .input-row input::placeholder{color:var(--text-muted)}
+    .input-row input:disabled,.btn:disabled{opacity:.4;cursor:not-allowed}
+
+    .rate-counter{display:flex;align-items:center;justify-content:center;gap:8px;font-size:.78rem;color:var(--text-muted);margin-bottom:10px}
+    .rate-counter .count{font-weight:700;color:var(--text);font-size:.85rem}
+    .rate-counter .count.warn{color:#ffaa44}
+    .rate-counter .count.danger{color:var(--accent)}
+
+    .btn{padding:12px 24px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .25s;white-space:nowrap;box-shadow:0 0 8px rgba(255,68,68,.2)}
+    .btn:hover{box-shadow:0 0 16px rgba(255,68,68,.4);opacity:.9}
+    .btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+
+    .btn-outline{padding:10px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:.85rem;cursor:pointer;transition:all .2s}
+    .btn-outline:hover{background:var(--surface-hover);color:var(--text)}
+
+    /* Pipeline */
+    .pipeline{display:none;flex-direction:column;gap:10px}
+    .pipeline.visible{display:flex}
+    .step{display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);font-size:.88rem;color:var(--text-muted);transition:all .3s}
+    .step.active{border-color:var(--accent);color:var(--text);background:var(--surface-hover);box-shadow:0 0 10px rgba(255,68,68,.08)}
+    .step.done{border-color:var(--green);color:var(--green);box-shadow:0 0 8px rgba(34,197,94,.08)}
+    .step.error{border-color:var(--accent);color:var(--accent)}
+    .step-icon{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;flex-shrink:0;background:var(--border);color:var(--text-muted);transition:all .3s}
+    .step.active .step-icon{background:var(--accent-soft);color:var(--accent);animation:pulse 1.4s infinite}
+    .step.done .step-icon{background:rgba(34,197,94,.15);color:var(--green);animation:none}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .step-detail{font-size:.78rem;color:var(--text-muted);margin-left:auto}
+
+    .progress-wrap{height:4px;background:var(--border);border-radius:4px;margin-top:6px;overflow:hidden;display:none}
+    .progress-wrap.visible{display:block}
+    .progress-bar{height:100%;width:0;background:var(--accent);border-radius:4px;transition:width .4s ease}
+
+    /* Global progress bar */
+    .global-progress{display:none;margin-bottom:14px}
+    .global-progress.visible{display:block}
+    .global-progress-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+    .global-progress-label{font-size:.78rem;color:var(--text-muted)}
+    .global-progress-pct{font-size:.95rem;font-weight:800;letter-spacing:.5px;background:linear-gradient(90deg,#ff4444,#ff6b6b,#ffaa44,#ff4444);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shine 3s linear infinite}
+    .global-progress-track{height:6px;background:var(--border);border-radius:6px;overflow:hidden;position:relative}
+    .global-progress-fill{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,#ff4444,#ff6b6b,#ffaa44);background-size:200% auto;animation:shine 3s linear infinite;transition:width .5s ease;position:relative}
+    .global-progress-fill::after{content:"";position:absolute;right:0;top:-2px;bottom:-2px;width:12px;border-radius:50%;background:#fff;box-shadow:0 0 10px rgba(255,68,68,.7),0 0 20px rgba(255,68,68,.4);opacity:0;transition:opacity .3s}
+    .global-progress-fill.active::after{opacity:1}
+
+    /* Result */
+    .result-card{display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+    .result-card.visible{display:block}
+    .result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .result-header h2{font-size:1.1rem}
+
+    .summary-content{line-height:1.75;font-size:.93rem;white-space:pre-wrap}
+    .summary-content h2,.summary-content h3{margin-top:18px;margin-bottom:6px}
+
+    .subtitle-content{font-family:"Cascadia Code",Consolas,monospace;font-size:.82rem;line-height:1.7;white-space:pre-wrap;max-height:500px;overflow-y:auto;padding:16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text-muted)}
+
+    .transcript-section{margin-top:16px}
+    .transcript-content{display:none;margin-top:10px;padding:16px;border-radius:8px;background:var(--bg);border:1px solid var(--border);font-size:.82rem;line-height:1.6;color:var(--text-muted);max-height:300px;overflow-y:auto;white-space:pre-wrap}
+    .transcript-content.visible{display:block}
+
+    .error-card{display:none;background:rgba(255,68,68,.08);border:1px solid var(--accent);border-radius:var(--radius);padding:18px 24px;color:var(--accent);font-size:.9rem}
+    .error-card.visible{display:block}
+
+    .history-section{margin-top:24px}
+    .history-toggle{display:flex;align-items:center;gap:8px;background:none;border:1px solid var(--border);border-radius:var(--radius);padding:12px 18px;color:var(--text-muted);font-size:.85rem;cursor:pointer;width:100%;transition:all .2s}
+    .history-toggle:hover{border-color:var(--accent);color:var(--text)}
+    .history-toggle .h-count{margin-left:auto;background:var(--border);color:var(--text-muted);font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:10px}
+    .history-list{display:none;margin-top:10px}
+    .history-list.visible{display:block}
+    .history-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all .2s;background:var(--surface)}
+    .history-item:hover{border-color:var(--accent);background:rgba(255,68,68,.03)}
+    .history-item .h-meta{flex:1;min-width:0}
+    .history-item .h-title{font-size:.82rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .history-item .h-info{font-size:.72rem;color:var(--text-muted);margin-top:2px}
+    .history-item .h-badge{font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:6px;flex-shrink:0}
+    .history-item .h-badge.summary{background:rgba(76,175,80,.12);color:#4caf50}
+    .history-item .h-badge.subtitle{background:rgba(33,150,243,.12);color:#2196f3}
+    .history-item .h-delete{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.9rem;padding:4px;border-radius:4px;transition:color .2s;flex-shrink:0}
+    .history-item .h-delete:hover{color:var(--accent)}
+
+    /* Footer */
+    .site-footer{margin-top:48px;padding:32px 20px 24px;border-top:1px solid var(--border);text-align:center}
+    .footer-devs{display:flex;justify-content:center;gap:32px;flex-wrap:wrap;margin-bottom:20px}
+    .footer-dev{display:flex;flex-direction:column;align-items:center;gap:6px}
+    .footer-dev .dev-avatar{width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--border);transition:border-color .2s}
+    .footer-dev:hover .dev-avatar{border-color:var(--accent)}
+    .footer-dev .dev-name{font-size:.85rem;font-weight:600;color:var(--text)}
+    .footer-dev .dev-socials{display:flex;gap:12px;align-items:center}
+    .footer-dev .dev-socials a{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;color:var(--text-muted);text-decoration:none;transition:color .2s}
+    .footer-dev .dev-socials a:hover{color:var(--accent)}
+    .footer-dev .dev-socials a svg{flex-shrink:0}
+    .footer-tagline{margin-top:16px;font-size:.85rem;font-weight:700;letter-spacing:.5px;background:linear-gradient(90deg,#ff4444,#ff6b6b,#ffaa44,#ff4444);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shine 3s linear infinite}
+
+    /* Popup overlay */
+    .popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;animation:fadeIn .4s ease forwards}
+    .popup-overlay.hidden{display:none}
+    @keyframes fadeIn{to{opacity:1}}
+
+    .popup{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:36px 32px;position:relative;box-shadow:0 0 40px rgba(255,68,68,.08),0 24px 48px rgba(0,0,0,.4)}
+
+    .popup-logo{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:24px}
+    .popup-logo svg{filter:drop-shadow(0 0 10px rgba(255,68,68,.5))}
+    .popup-logo span{font-size:1.5rem;font-weight:700;color:#fff;text-shadow:0 0 16px rgba(255,68,68,.5),0 0 50px rgba(255,68,68,.15)}
+
+    .popup h3{font-size:.88rem;font-weight:600;color:var(--text);margin:18px 0 6px}
+    .popup p{font-size:.82rem;line-height:1.65;color:var(--text-muted);margin-bottom:10px}
+
+    .popup .dev-link{color:var(--text);font-size:.82rem;line-height:1.8}
+    .popup .dev-link strong{color:var(--text);font-weight:600}
+    .popup .dev-link a{color:var(--accent);text-decoration:none;transition:opacity .2s}
+    .popup .dev-link a:hover{opacity:.7}
+
+    .popup-tagline{margin-top:24px;padding-top:18px;border-top:1px solid var(--border);text-align:center;font-size:.85rem;font-weight:700;letter-spacing:.5px;background:linear-gradient(90deg,#ff4444,#ff6b6b,#ffaa44,#ff4444);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shine 3s linear infinite;text-shadow:none}
+    @keyframes shine{to{background-position:200% center}}
+
+    .popup .enter-btn{display:block;width:100%;margin-top:20px;padding:14px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .25s;box-shadow:0 0 12px rgba(255,68,68,.25)}
+    .popup .enter-btn:hover{box-shadow:0 0 22px rgba(255,68,68,.45);opacity:.9}
+
+    .popup .alpha-badge{display:inline-block;padding:3px 10px;border-radius:6px;background:rgba(255,68,68,.12);color:var(--accent);font-size:.7rem;font-weight:700;letter-spacing:.5px;vertical-align:middle;margin-left:6px}
+  </style>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+</head>
+<body>
+
+<!-- Welcome Popup -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup">
+    <div class="popup-logo">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="var(--accent)" fill-rule="evenodd" xmlns="http://www.w3.org/2000/svg">
+        <path clip-rule="evenodd" d="M11.981.009c.226-.012.453-.011.679 0 .247.01.495.024.74.062.401.064.798.157 1.19.273.463.138.92.299 1.356.511a7.31 7.31 0 012.948 2.642c.292.469.536.963.739 1.479.219.556.446 1.11.623 1.683.204.654.329 1.326.458 1.997.097.504.182 1.01.29 1.511.156.722.329 1.44.494 2.16.186.812.4 1.615.63 2.415.102.355.193.713.282 1.072.11.436.202.876.254 1.323.031.278.066.557.073.837a7.56 7.56 0 01-.017.88c-.037.413-.1.818-.226 1.212a5.017 5.017 0 01-.915 1.649l-.13.156.018.023c.043-.023.088-.041.127-.068.2-.138.373-.307.531-.49.4-.46.721-.973.975-1.529a3.59 3.59 0 00.325-1.72c-.024-.424-.097-.834-.3-1.213-.013-.027-.015-.06-.03-.121.05.035.082.048.101.072.107.13.22.258.315.398.33.494.46 1.052.486 1.64a3.75 3.75 0 01-.47 1.97c-.36.655-.887 1.14-1.526 1.506-.193.111-.394.21-.595.308-.157.078-.248.211-.318.365a.522.522 0 00-.033.406.359.359 0 01.013.139c-.005.077-.077.155-.14.162-.054.006-.125-.043-.15-.116a1.206 1.206 0 01-.06-.233c-.04-.314-.155-.6-.308-.87a3.906 3.906 0 00-.73-.91 2.129 2.129 0 00-.897-.524 4.093 4.093 0 00-.692-.131c-.075-.008-.15-.04-.22.01.18.06.363.11.538.18.434.173.82.43 1.18.728.308.255.58.543.794.884.098.155.186.315.227.496.027.123.042.25.067.375.013.062-.002.109-.053.144-.047.033-.122.034-.163-.01a.455.455 0 01-.08-.14c-.03-.073-.038-.159-.078-.225a7.314 7.314 0 00-1.423-1.664c-.16-.137-.329-.26-.537-.323-.376-.114-.753-.203-1.15-.154-.213.025-.427.032-.64.053a1.6 1.6 0 00-.736.278 5.14 5.14 0 00-.834.72c-.329.342-.642.699-.955 1.055-.136.155-.264.319-.314.531a5.227 5.227 0 00-.012.051.096.096 0 01-.09.076h-.31c-.046 0-.082-.048-.072-.094.023-.108.045-.216.07-.324.075-.325.19-.635.368-.917.024-.039.04-.088.104-.08l.01.049.027.077c.28-.435.571-.834.996-1.135.283-.204.584-.378.89-.55a.196.196 0 00-.098-.002c-.162.043-.325.084-.485.134-.402.124-.764.33-1.11.566-.147.1-.298.193-.414.333a7.314 7.314 0 00-1.07 1.767.845.845 0 00-.04.12.075.075 0 01-.072.056h-.494c-.04 0-.062-.051-.036-.082.123-.14.246-.282.377-.415.275-.281.58-.532.777-.884.027-.048.063-.09.095-.135.238-.333.54-.607.818-.902.082-.086.175-.16.26-.24.029-.027.053-.057.079-.085l-.018-.025-.135.041c-.034.017-.07.031-.102.05-.248.144-.494.292-.743.433-.408.23-.825.439-1.209.711-.281.2-.591.358-.889.533-.02.012-.044.015-.08.028-.015-.135.143-.201.108-.336-.033.014-.064.02-.085.038-.111.096-.227.19-.328.296-.148.157-.284.325-.425.488-.125.143-.25.286-.373.431A.153.153 0 019.89 24H8.762a.316.316 0 00.016-.042c.028-.09.085-.172.083-.28-.091-.018-.162.001-.212.077a4.45 4.45 0 00-.136.215c-.01.016-.024.03-.042.03h-.093c-.019 0-.029-.022-.017-.037.071-.088.14-.178.209-.268.001-.002-.006-.012-.012-.024-.014.004-.03.006-.045.013-.176.09-.352.181-.527.274a.363.363 0 01-.168.042H5.202c-.026 0-.039-.036-.019-.053.21-.178.402-.374.558-.605.335-.496.538-1.047.667-1.629.004-.02-.003-.043-.006-.091-.037.048-.059.072-.076.1a1.943 1.943 0 01-.334.415c-.28.258-.59.448-.983.464-.297.012-.588 0-.865-.127-.46-.21-.722-.57-.794-1.072-.025-.17-.017-.171-.182-.219A3.513 3.513 0 011.97 20.6a2.286 2.286 0 01-.808-1.13 3.569 3.569 0 01-.16-1.245c.002-.034.016-.067.024-.1.032.023.046.043.05.066.033.153.059.308.096.46.086.355.257.664.516.92.258.256.571.419.91.532.358.118.717.138 1.07-.016a1.89 1.89 0 00.621-.452c.328-.348.533-.76.648-1.223.009-.034.005-.071.007-.11-.015.006-.026.006-.03.011-.031.05-.064.1-.093.152-.284.502-.679.887-1.196 1.135-.351.17-.718.255-1.11.159a1.607 1.607 0 01-.971-.64 2.006 2.006 0 01-.368-.924 2.903 2.903 0 01.02-.886c.05-.439.466-1.17.742-1.271-.02.063-.035.112-.053.16-.043.116-.097.227-.13.345a1.901 1.901 0 00-.05.82c.033.212.09.416.204.6.147.236.346.407.62.465.11.023.225.014.338.018a.576.576 0 00.386-.131c.164-.128.282-.292.366-.481.168-.375.24-.777.309-1.179.05-.296.093-.594.133-.893.039-.281.071-.563.104-.845.026-.232.048-.464.074-.696.024-.228.052-.455.076-.683.024-.227.047-.455.069-.683.013-.14.022-.28.034-.42l.037-.417c.022-.25.041-.5.065-.748.008-.082-.02-.132-.09-.177a2.46 2.46 0 01-.492-.418c-.1-.109-.188-.228-.282-.342-.035-.042-.056-.097-.116-.118a2.084 2.084 0 00.275.597c.06.092.131.176.196.265.063.086.182.115.234.226-.028.003-.046.01-.06.006a4.74 4.74 0 01-.22-.057 2.71 2.71 0 01-1.287-.819c-.435-.487-.656-1.076-.71-1.723a5.206 5.206 0 01.014-1.06c.072-.602.22-1.186.45-1.745.155-.376.338-.741.526-1.102.205-.393.466-.75.765-1.076.512-.559 1.104-1.024 1.726-1.448.717-.49 1.478-.898 2.277-1.233C8.244.828 8.767.632 9.31.494c.655-.166 1.31-.33 1.982-.415.229-.03.458-.058.688-.07z"/>
+      </svg>
+      <span>NouScript</span>
+      <span class="alpha-badge">ALPHA</span>
+    </div>
+
+    <p>NouScript is an experimental research project designed to redefine how we consume and synthesize information from video and audio content across platforms. By leveraging the state-of-the-art <strong style="color:var(--text)">Hermes-4-70B</strong> model from <strong style="color:var(--text)">Nous Research</strong>, we provide deep-reasoning summaries and high-precision translations from <strong style="color:var(--text)">YouTube videos</strong>, <strong style="color:var(--text)">X (Twitter) posts</strong>, and <strong style="color:var(--text)">recorded Twitter Spaces</strong>.</p>
+
+    <p>Please note that this platform is currently in <strong style="color:var(--accent)">Active Development (Alpha)</strong>. It is intended strictly for research, learning, and developmental purposes. As we continue to refine the in-memory processing and reasoning capabilities, your feedback is invaluable to us.</p>
+
+    <h3>Connect & Collaborate</h3>
+    <p>We are a community-driven initiative. If you encounter bugs, have feature suggestions, or wish to discuss the underlying architecture, reach out to the developers.</p>
+
+    <h3>Security & Fair Use</h3>
+    <p>To ensure the stability of the research environment and prevent resource abuse, NouScript employs <strong style="color:var(--text)">Cloudflare Turnstile</strong> bot protection and a rate limit of <strong style="color:var(--text)">5 queries per hour</strong> per user. These measures are strictly for security and fair usage purposes.</p>
+
+    <p style="margin-bottom:4px">If you have questions or need support, reach out to the developers on X or Discord:</p>
+    <div class="dev-link">
+      <strong>Kutsal</strong> &mdash; X: <a href="https://x.com/gurhankutsal" target="_blank">@gurhankutsal</a> | Discord: <strong>kutsal</strong><br>
+      <strong>Gizdusum</strong> &mdash; X: <a href="https://x.com/gizdusumandnode" target="_blank">@gizdusumandnode</a> | Discord: <strong>gizdusum</strong>
+    </div>
+
+    <p style="text-align:center;margin-top:14px;margin-bottom:0;font-size:.78rem;color:var(--text-muted)">For more information visit <a href="https://portal.nousresearch.com/models" target="_blank" style="color:var(--accent);text-decoration:none">portal.nousresearch.com/models</a></p>
+
+    <div class="popup-tagline">Developed with Hermes-4-70B by Nous Research. Powered by Innovation.</div>
+
+    <button class="enter-btn" id="enterBtn">Enter NouScript</button>
+  </div>
+</div>
+
+<header>
+  <h1>
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 0 8px rgba(255,68,68,.45))">
+      <path clip-rule="evenodd" d="M11.981.009c.226-.012.453-.011.679 0 .247.01.495.024.74.062.401.064.798.157 1.19.273.463.138.92.299 1.356.511a7.31 7.31 0 012.948 2.642c.292.469.536.963.739 1.479.219.556.446 1.11.623 1.683.204.654.329 1.326.458 1.997.097.504.182 1.01.29 1.511.156.722.329 1.44.494 2.16.186.812.4 1.615.63 2.415.102.355.193.713.282 1.072.11.436.202.876.254 1.323.031.278.066.557.073.837a7.56 7.56 0 01-.017.88c-.037.413-.1.818-.226 1.212a5.017 5.017 0 01-.915 1.649l-.13.156.018.023c.043-.023.088-.041.127-.068.2-.138.373-.307.531-.49.4-.46.721-.973.975-1.529a3.59 3.59 0 00.325-1.72c-.024-.424-.097-.834-.3-1.213-.013-.027-.015-.06-.03-.121.05.035.082.048.101.072.107.13.22.258.315.398.33.494.46 1.052.486 1.64a3.75 3.75 0 01-.47 1.97c-.36.655-.887 1.14-1.526 1.506-.193.111-.394.21-.595.308-.157.078-.248.211-.318.365a.522.522 0 00-.033.406.359.359 0 01.013.139c-.005.077-.077.155-.14.162-.054.006-.125-.043-.15-.116a1.206 1.206 0 01-.06-.233c-.04-.314-.155-.6-.308-.87a3.906 3.906 0 00-.73-.91 2.129 2.129 0 00-.897-.524 4.093 4.093 0 00-.692-.131c-.075-.008-.15-.04-.22.01.18.06.363.11.538.18.434.173.82.43 1.18.728.308.255.58.543.794.884.098.155.186.315.227.496.027.123.042.25.067.375.013.062-.002.109-.053.144-.047.033-.122.034-.163-.01a.455.455 0 01-.08-.14c-.03-.073-.038-.159-.078-.225a7.314 7.314 0 00-1.423-1.664c-.16-.137-.329-.26-.537-.323-.376-.114-.753-.203-1.15-.154-.213.025-.427.032-.64.053a1.6 1.6 0 00-.736.278 5.14 5.14 0 00-.834.72c-.329.342-.642.699-.955 1.055-.136.155-.264.319-.314.531a5.227 5.227 0 00-.012.051.096.096 0 01-.09.076h-.31c-.046 0-.082-.048-.072-.094.023-.108.045-.216.07-.324.075-.325.19-.635.368-.917.024-.039.04-.088.104-.08l.01.049.027.077c.28-.435.571-.834.996-1.135.283-.204.584-.378.89-.55a.196.196 0 00-.098-.002c-.162.043-.325.084-.485.134-.402.124-.764.33-1.11.566-.147.1-.298.193-.414.333a7.314 7.314 0 00-1.07 1.767.845.845 0 00-.04.12.075.075 0 01-.072.056h-.494c-.04 0-.062-.051-.036-.082.123-.14.246-.282.377-.415.275-.281.58-.532.777-.884.027-.048.063-.09.095-.135.238-.333.54-.607.818-.902.082-.086.175-.16.26-.24.029-.027.053-.057.079-.085l-.018-.025-.135.041c-.034.017-.07.031-.102.05-.248.144-.494.292-.743.433-.408.23-.825.439-1.209.711-.281.2-.591.358-.889.533-.02.012-.044.015-.08.028-.015-.135.143-.201.108-.336-.033.014-.064.02-.085.038-.111.096-.227.19-.328.296-.148.157-.284.325-.425.488-.125.143-.25.286-.373.431A.153.153 0 019.89 24H8.762a.316.316 0 00.016-.042c.028-.09.085-.172.083-.28-.091-.018-.162.001-.212.077a4.45 4.45 0 00-.136.215c-.01.016-.024.03-.042.03h-.093c-.019 0-.029-.022-.017-.037.071-.088.14-.178.209-.268.001-.002-.006-.012-.012-.024-.014.004-.03.006-.045.013-.176.09-.352.181-.527.274a.363.363 0 01-.168.042H5.202c-.026 0-.039-.036-.019-.053.21-.178.402-.374.558-.605.335-.496.538-1.047.667-1.629.004-.02-.003-.043-.006-.091-.037.048-.059.072-.076.1a1.943 1.943 0 01-.334.415c-.28.258-.59.448-.983.464-.297.012-.588 0-.865-.127-.46-.21-.722-.57-.794-1.072-.025-.17-.017-.171-.182-.219A3.513 3.513 0 011.97 20.6a2.286 2.286 0 01-.808-1.13 3.569 3.569 0 01-.16-1.245c.002-.034.016-.067.024-.1.032.023.046.043.05.066.033.153.059.308.096.46.086.355.257.664.516.92.258.256.571.419.91.532.358.118.717.138 1.07-.016a1.89 1.89 0 00.621-.452c.328-.348.533-.76.648-1.223.009-.034.005-.071.007-.11-.015.006-.026.006-.03.011-.031.05-.064.1-.093.152-.284.502-.679.887-1.196 1.135-.351.17-.718.255-1.11.159a1.607 1.607 0 01-.971-.64 2.006 2.006 0 01-.368-.924 2.903 2.903 0 01.02-.886c.05-.439.466-1.17.742-1.271-.02.063-.035.112-.053.16-.043.116-.097.227-.13.345a1.901 1.901 0 00-.05.82c.033.212.09.416.204.6.147.236.346.407.62.465.11.023.225.014.338.018a.576.576 0 00.386-.131c.164-.128.282-.292.366-.481.168-.375.24-.777.309-1.179.05-.296.093-.594.133-.893.039-.281.071-.563.104-.845.026-.232.048-.464.074-.696.024-.228.052-.455.076-.683.024-.227.047-.455.069-.683.013-.14.022-.28.034-.42l.037-.417c.022-.25.041-.5.065-.748.008-.082-.02-.132-.09-.177a2.46 2.46 0 01-.492-.418c-.1-.109-.188-.228-.282-.342-.035-.042-.056-.097-.116-.118a2.084 2.084 0 00.275.597c.06.092.131.176.196.265.063.086.182.115.234.226-.028.003-.046.01-.06.006a4.74 4.74 0 01-.22-.057 2.71 2.71 0 01-1.287-.819c-.435-.487-.656-1.076-.71-1.723a5.206 5.206 0 01.014-1.06c.072-.602.22-1.186.45-1.745.155-.376.338-.741.526-1.102.205-.393.466-.75.765-1.076.512-.559 1.104-1.024 1.726-1.448.717-.49 1.478-.898 2.277-1.233C8.244.828 8.767.632 9.31.494c.655-.166 1.31-.33 1.982-.415.229-.03.458-.058.688-.07z"/>
+    </svg>
+    NouScript
+    <span class="alpha-badge" style="font-size:.55rem;vertical-align:middle;margin-left:4px">ALPHA</span>
+  </h1>
+  <p>Multi-Platform Video Intelligence<br>YouTube, X (Twitter) & Spaces — Powered by Hermes-4-70B by Nous Research.</p>
+</header>
+
+<main>
+  <!-- Controls -->
+  <div class="card">
+    <div class="options-row">
+      <label>
+        Video Language
+        <select id="sourceLangSelect">
+          <option value="Auto" selected>Auto-detect</option>
+          <option value="English">English</option>
+          <option value="Turkish">Turkish</option>
+          <option value="Spanish">Spanish</option>
+          <option value="French">French</option>
+          <option value="German">German</option>
+          <option value="Portuguese">Portuguese</option>
+          <option value="Russian">Russian</option>
+          <option value="Japanese">Japanese</option>
+          <option value="Korean">Korean</option>
+          <option value="Chinese">Chinese</option>
+          <option value="Arabic">Arabic</option>
+          <option value="Hindi">Hindi</option>
+          <option value="Italian">Italian</option>
+          <option value="Dutch">Dutch</option>
+        </select>
+      </label>
+      <label>
+        Output Language
+        <select id="langSelect">
+          <option value="English" selected>English</option>
+          <option value="Turkish">Turkish</option>
+          <option value="Spanish">Spanish</option>
+          <option value="French">French</option>
+          <option value="German">German</option>
+          <option value="Portuguese">Portuguese</option>
+          <option value="Russian">Russian</option>
+          <option value="Japanese">Japanese</option>
+          <option value="Korean">Korean</option>
+          <option value="Chinese">Chinese</option>
+          <option value="Arabic">Arabic</option>
+          <option value="Hindi">Hindi</option>
+          <option value="Italian">Italian</option>
+          <option value="Dutch">Dutch</option>
+        </select>
+      </label>
+      <label>
+        Mode
+        <div class="mode-toggle" id="modeToggle">
+          <button data-mode="summary" class="active">Summary</button>
+          <button data-mode="subtitle">Subtitles</button>
+        </div>
+      </label>
+    </div>
+    <div class="rate-counter">Queries remaining: <span class="count" id="rateCount">-</span> / 5 per hour</div>
+    <form id="form" class="input-row" autocomplete="off">
+      <input id="urlInput" type="text" placeholder="Paste a YouTube or X (Twitter) video link..." required />
+      <button class="btn" type="submit" id="submitBtn">Process</button>
+    </form>
+    <div id="turnstileWidget" style="display:flex;justify-content:center;margin-top:10px"></div>
+  </div>
+
+  <!-- Global Progress -->
+  <div class="global-progress" id="globalProgress">
+    <div class="global-progress-header">
+      <span class="global-progress-label" id="globalLabel">Starting...</span>
+      <span class="global-progress-pct" id="globalPct">0%</span>
+    </div>
+    <div class="global-progress-track">
+      <div class="global-progress-fill" id="globalFill"></div>
+    </div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="pipeline" id="pipeline">
+    <div class="step" id="step-waiting" style="display:none">
+      <div class="step-icon">Q</div>
+      <span>Waiting in queue</span>
+      <span class="step-detail" id="detail-waiting"></span>
+    </div>
+    <div class="step" id="step-downloading">
+      <div class="step-icon">1</div>
+      <span>Downloading audio</span>
+      <span class="step-detail" id="detail-downloading"></span>
+    </div>
+    <div class="step" id="step-transcribing">
+      <div class="step-icon">2</div>
+      <span>Transcribing (Whisper)</span>
+      <span class="step-detail" id="detail-transcribing"></span>
+      <div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
+    </div>
+    <div class="step" id="step-thinking">
+      <div class="step-icon">3</div>
+      <span id="thinkingLabel">AI processing</span>
+      <span class="step-detail" id="detail-thinking"></span>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <h2 id="resultTitle">Summary</h2>
+      <button class="btn-outline" id="exportBtn">Export .txt</button>
+    </div>
+    <div class="summary-content" id="summaryContent"></div>
+    <div class="subtitle-content" id="subtitleContent" style="display:none"></div>
+    <div class="transcript-section">
+      <button class="btn-outline" id="toggleTranscript" style="width:100%;text-align:left">Show / hide full transcript</button>
+      <div class="transcript-content" id="transcriptContent"></div>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-card" id="errorCard"></div>
+
+  <!-- History -->
+  <div class="history-section">
+    <button class="history-toggle" id="historyToggle">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Query History
+      <span class="h-count" id="historyCount">0</span>
+    </button>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-devs">
+    <div class="footer-dev">
+      <img class="dev-avatar" src="https://unavatar.io/x/gurhankutsal" alt="Kutsal">
+      <span class="dev-name">Kutsal</span>
+      <div class="dev-socials">
+        <a href="https://x.com/gurhankutsal" target="_blank">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          @gurhankutsal
+        </a>
+        <a href="#" onclick="return false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/></svg>
+          kutsal
+        </a>
+      </div>
+    </div>
+    <div class="footer-dev">
+      <img class="dev-avatar" src="https://unavatar.io/x/gizdusumandnode" alt="Gizdusum">
+      <span class="dev-name">Gizdusum</span>
+      <div class="dev-socials">
+        <a href="https://x.com/gizdusumandnode" target="_blank">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          @gizdusumandnode
+        </a>
+        <a href="#" onclick="return false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/></svg>
+          gizdusum
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-tagline">Developed with Hermes-4-70B by Nous Research. Powered by Innovation.</div>
+</footer>
+
+<script>
+const form        = document.getElementById("form");
+const urlInput    = document.getElementById("urlInput");
+const submitBtn   = document.getElementById("submitBtn");
+const sourceLangSelect = document.getElementById("sourceLangSelect");
+const langSelect  = document.getElementById("langSelect");
+const modeToggle  = document.getElementById("modeToggle");
+const pipeline    = document.getElementById("pipeline");
+const resultCard  = document.getElementById("resultCard");
+const errorCard   = document.getElementById("errorCard");
+const rateCount   = document.getElementById("rateCount");
+
+const TURNSTILE_SITE_KEY = "0x4AAAAAACm1JqciPupvAF7R";
+let cfToken = "";
+let turnstileId = null;
+
+function renderTurnstile(){
+  if(typeof turnstile==="undefined"){setTimeout(renderTurnstile,200);return;}
+  turnstileId=turnstile.render("#turnstileWidget",{
+    sitekey:TURNSTILE_SITE_KEY,
+    theme:"dark",
+    size:"compact",
+    callback:(token)=>{cfToken=token;},
+    "expired-callback":()=>{cfToken="";turnstile.reset(turnstileId);}
+  });
+}
+renderTurnstile();
+
+async function refreshRateCount(){
+  try{
+    const res=await fetch("/api/remaining");
+    const data=await res.json();
+    rateCount.textContent=data.remaining;
+    rateCount.className="count"+(data.remaining<=3?" danger":data.remaining<=5?" warn":"");
+  }catch(e){}
+}
+refreshRateCount();
+const progressWrap= document.getElementById("progressWrap");
+const progressBar = document.getElementById("progressBar");
+const globalProgress = document.getElementById("globalProgress");
+const globalLabel = document.getElementById("globalLabel");
+const globalPct   = document.getElementById("globalPct");
+const globalFill  = document.getElementById("globalFill");
+
+function setGlobalProgress(pct, label){
+  globalProgress.classList.add("visible");
+  globalFill.style.width=pct+"%";
+  globalFill.classList.toggle("active", pct>0 && pct<100);
+  globalPct.textContent=Math.round(pct)+"%";
+  if(label) globalLabel.textContent=label;
+}
+const summaryEl   = document.getElementById("summaryContent");
+const subtitleEl  = document.getElementById("subtitleContent");
+const transcriptEl= document.getElementById("transcriptContent");
+const toggleBtn   = document.getElementById("toggleTranscript");
+const exportBtn   = document.getElementById("exportBtn");
+const resultTitle = document.getElementById("resultTitle");
+const thinkingLbl = document.getElementById("thinkingLabel");
+
+let selectedMode = "summary";
+let lastResult = null;
+let isProcessing = false;
+
+/* History (localStorage) */
+const HISTORY_KEY = "nousscript_history";
+const MAX_HISTORY = 20;
+const historyToggle = document.getElementById("historyToggle");
+const historyList = document.getElementById("historyList");
+const historyCount = document.getElementById("historyCount");
+
+function getHistory(){ return JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]"); }
+function saveHistory(h){ localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0,MAX_HISTORY))); }
+
+function addToHistory(url, mode, lang, data, srcLang){
+  const h=getHistory();
+  h.unshift({url, mode, lang, source_lang:srcLang||"Auto", data, ts:Date.now()});
+  saveHistory(h);
+  renderHistory();
+}
+
+function renderHistory(){
+  const h=getHistory();
+  historyCount.textContent=h.length;
+  if(!h.length){historyList.innerHTML="<p style='font-size:.78rem;color:var(--text-muted);padding:8px 0'>No queries yet.</p>";return;}
+  historyList.innerHTML=h.map((item,i)=>{
+    const date=new Date(item.ts);
+    const timeStr=date.toLocaleDateString("en-GB",{day:"2-digit",month:"short"})+", "+date.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+    const title=item.url.replace(/^https?:\/\/(www\.)?/,"").substring(0,50);
+    return `<div class="history-item" data-idx="${i}">
+      <div class="h-meta"><div class="h-title">${title}</div><div class="h-info">${timeStr} &middot; ${item.lang}</div></div>
+      <span class="h-badge ${item.mode}">${item.mode==="subtitle"?"Subtitle":"Summary"}</span>
+      <button class="h-delete" data-delidx="${i}" title="Remove">&times;</button>
+    </div>`;
+  }).join("");
+}
+
+historyToggle.addEventListener("click",()=>historyList.classList.toggle("visible"));
+
+historyList.addEventListener("click",(e)=>{
+  const delBtn=e.target.closest(".h-delete");
+  if(delBtn){
+    e.stopPropagation();
+    const idx=parseInt(delBtn.dataset.delidx);
+    const h=getHistory();
+    h.splice(idx,1);
+    saveHistory(h);
+    renderHistory();
+    return;
+  }
+  const item=e.target.closest(".history-item");
+  if(!item)return;
+  const idx=parseInt(item.dataset.idx);
+  const h=getHistory();
+  const entry=h[idx];
+  if(!entry)return;
+  restoreResult(entry);
+});
+
+function restoreResult(entry){
+  resetUI();
+  lastResult=entry.data;
+  if(entry.data.summary){
+    resultTitle.textContent="Summary";
+    summaryEl.innerHTML=renderMarkdown(entry.data.summary);
+    summaryEl.style.display="";
+    subtitleEl.style.display="none";
+    exportBtn.textContent="Export .txt";
+  }else if(entry.data.subtitle){
+    resultTitle.textContent="Subtitles";
+    subtitleEl.textContent=entry.data.subtitle;
+    subtitleEl.style.display="";
+    summaryEl.style.display="none";
+    exportBtn.textContent="Export .srt";
+  }
+  transcriptEl.textContent=entry.data.transcript||"";
+  resultCard.classList.add("visible");
+  urlInput.value=entry.url;
+}
+
+renderHistory();
+
+window.addEventListener("beforeunload",(e)=>{
+  if(isProcessing){e.preventDefault();e.returnValue="";}
+});
+
+/* Mode toggle */
+modeToggle.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-mode]");
+  if (!btn) return;
+  modeToggle.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  selectedMode = btn.dataset.mode;
+});
+
+const STEPS = ["waiting","downloading","transcribing","thinking"];
+
+function resetUI(){
+  pipeline.classList.remove("visible");
+  resultCard.classList.remove("visible");
+  errorCard.classList.remove("visible");
+  transcriptEl.classList.remove("visible");
+  progressWrap.classList.remove("visible");
+  progressBar.style.width="0";
+  globalProgress.classList.remove("visible");
+  globalFill.style.width="0";
+  globalFill.classList.remove("active");
+  globalPct.textContent="0%";
+  globalLabel.textContent="Starting...";
+  summaryEl.textContent="";summaryEl.innerHTML="";
+  subtitleEl.textContent="";subtitleEl.style.display="none";
+  summaryEl.style.display="";
+  transcriptEl.textContent="";
+  lastResult=null;
+  STEPS.forEach(s=>{
+    const el=document.getElementById("step-"+s);
+    el.classList.remove("active","done","error");
+    el.style.display=s==="waiting"?"none":"";
+    const d=document.getElementById("detail-"+s);
+    if(d)d.textContent="";
+  });
+}
+
+function activateStep(n){const el=document.getElementById("step-"+n);if(!el)return;el.style.display="";el.classList.remove("done");el.classList.add("active")}
+function completeStep(n){const el=document.getElementById("step-"+n);if(!el)return;el.classList.remove("active");el.classList.add("done")}
+function setDetail(n,t){const el=document.getElementById("detail-"+n);if(el)el.textContent=t}
+
+function renderMarkdown(text){
+  text=text.replace(/<think>[\s\S]*?<\/think>/gi,"").trim();
+  return text
+    .replace(/^### (.+)$/gm,"<h3>$1</h3>")
+    .replace(/^## (.+)$/gm,"<h2>$1</h2>")
+    .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g,"<em>$1</em>")
+    .replace(/^- (.+)$/gm,"&#8226; $1");
+}
+
+form.addEventListener("submit",async(e)=>{
+  e.preventDefault();
+  let url=urlInput.value.trim();
+  if(!url)return;
+  if(!/^https?:\/\//i.test(url)) url="https://"+url;
+  if(!/youtube\.com|youtu\.be|twitter\.com|x\.com/i.test(url)){alert("Please enter a valid YouTube or X (Twitter) URL.");return;}
+
+  resetUI();
+  pipeline.classList.add("visible");
+  submitBtn.disabled=true;
+  submitBtn.textContent="Processing...";
+  isProcessing=true;
+  thinkingLbl.textContent=selectedMode==="subtitle"?"Translating subtitles":"AI summarizing";
+
+  let currentStage=null;
+  const mode=selectedMode;
+  const lang=langSelect.value;
+  const source_lang=sourceLangSelect.value;
+
+  try{
+    const params=new URLSearchParams({url,mode,lang,source_lang,cf_token:cfToken||""});
+    const sse=new EventSource("/api/process?"+params);
+
+    sse.onmessage=(event)=>{
+      const data=JSON.parse(event.data);
+      const stage=data.stage;
+
+      if(currentStage&&currentStage!==stage)completeStep(currentStage);
+      currentStage=stage;
+
+      if(stage==="waiting"){activateStep("waiting");setGlobalProgress(2,"Waiting in queue...");return}
+      if(stage==="downloading"){activateStep("downloading");setGlobalProgress(10,"Downloading audio...");return}
+      if(stage==="transcribing"){
+        activateStep("transcribing");
+        if(data.progress!==undefined){
+          progressWrap.classList.add("visible");
+          progressBar.style.width=data.progress+"%";
+          const gPct=15+data.progress*0.55;
+          setGlobalProgress(gPct,"Transcribing... "+data.progress+"%");
+        }else{
+          setGlobalProgress(15,"Transcribing...");
+        }
+        setDetail("transcribing",data.message);
+        return;
+      }
+      if(stage==="thinking"){activateStep("thinking");progressWrap.classList.remove("visible");setGlobalProgress(75,"AI is thinking...");return}
+
+      if(stage==="done"){
+        completeStep("thinking");
+        setGlobalProgress(100,"Complete!");
+        globalFill.classList.remove("active");
+        lastResult=data;
+
+        if(data.summary){
+          resultTitle.textContent="Summary";
+          summaryEl.innerHTML=renderMarkdown(data.summary);
+          summaryEl.style.display="";
+          subtitleEl.style.display="none";
+          exportBtn.textContent="Export .txt";
+        } else if(data.subtitle){
+          resultTitle.textContent="Subtitles";
+          subtitleEl.textContent=data.subtitle;
+          subtitleEl.style.display="";
+          summaryEl.style.display="none";
+          exportBtn.textContent="Export .srt";
+        }
+
+        transcriptEl.textContent=data.transcript||"";
+        resultCard.classList.add("visible");
+        addToHistory(url, mode, lang, data, source_lang);
+        finish(sse);
+        return;
+      }
+
+      if(stage==="error"){
+        if(currentStage){const el=document.getElementById("step-"+currentStage);if(el){el.classList.remove("active");el.classList.add("error")}}
+        errorCard.textContent=data.message;
+        errorCard.classList.add("visible");
+        finish(sse);
+      }
+    };
+
+    sse.onerror=()=>{
+      errorCard.textContent="Connection error - server may not be responding.";
+      errorCard.classList.add("visible");
+      finish(sse);
+    };
+  }catch(err){
+    errorCard.textContent="Unexpected error: "+err.message;
+    errorCard.classList.add("visible");
+    submitBtn.disabled=false;
+    submitBtn.textContent="Process";
+  }
+});
+
+function finish(sse){
+  sse.close();submitBtn.disabled=false;submitBtn.textContent="Process";
+  isProcessing=false;
+  refreshRateCount();
+  cfToken="";
+  if(turnstileId!==null)turnstile.reset(turnstileId);
+}
+
+toggleBtn.addEventListener("click",()=>transcriptEl.classList.toggle("visible"));
+
+/* Export */
+exportBtn.addEventListener("click",()=>{
+  if(!lastResult)return;
+  let content,filename;
+  if(lastResult.subtitle){
+    content=lastResult.subtitle;
+    filename="subtitles.srt";
+  } else {
+    const raw=lastResult.summary||"";
+    content=raw.replace(/<think>[\s\S]*?<\/think>/gi,"").trim();
+    filename="summary.txt";
+  }
+  const blob=new Blob([content],{type:"text/plain;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+/* Popup */
+document.getElementById("enterBtn").addEventListener("click",()=>{
+  const overlay=document.getElementById("popupOverlay");
+  overlay.style.opacity="0";
+  overlay.style.transition="opacity .3s ease";
+  setTimeout(()=>overlay.classList.add("hidden"),300);
+});
+</script>
+</body>
+</html>
