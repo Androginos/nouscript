@@ -172,6 +172,10 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         "no_playlist": True,
     }
 
+    cookies_path = os.getenv("COOKIES_FILE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+    if os.path.isfile(cookies_path):
+        ydl_opts["cookiefile"] = cookies_path
+
     if platform == "youtube":
         ydl_opts["extractor_args"] = {
             "youtube": {"player_client": ["web", "android", "ios"]}

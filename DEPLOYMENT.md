@@ -280,4 +280,21 @@ Bu hata yt-dlp'nin YouTube tarafından engellenmesinden kaynaklanır. Çözümle
 
 2. **Kod güncellemesi** — `player_client` extractor args eklendi. `git pull` ile alıp `systemctl restart nouscript` yapın.
 
-3. **Hâlâ çalışmıyorsa** — Bazı videolar cookies gerektirebilir. [yt-dlp cookies rehberi](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp).
+3. **Cookies kullan** — YouTube bot engelini aşmak için cookies gerekebilir:
+
+   **a) Tarayıcıda cookies export:**
+   - Chrome: [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) eklentisini kur
+   - youtube.com'a git ve giriş yap (Google hesabınla)
+   - Eklenti ikonuna tıkla → "Export" → `cookies.txt` indir
+
+   **b) Sunucuya yükle:**
+   - Hostinger panel → Terminal veya Dosya Yöneticisi
+   - `/opt/nouscript/` klasörüne `cookies.txt` dosyasını yükle
+   - Veya SCP ile: `scp cookies.txt root@SUNUCU_IP:/opt/nouscript/`
+
+   **c) Servisi yeniden başlat:**
+   ```bash
+   systemctl restart nouscript
+   ```
+
+   Uygulama `cookies.txt` dosyasını otomatik kullanır. **Not:** Cookies 1–2 haftada expire olabilir, gerekirse yeniden export edin.
