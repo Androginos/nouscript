@@ -263,3 +263,21 @@ systemctl restart nouscript
 ## Cloudflare Turnstile Notu
 
 Canlı sitede Turnstile kullanıyorsanız, Cloudflare panelinde domain'inizi ekleyip yeni Site Key ve Secret Key alın. `.env` dosyasındaki `TURNSTILE_SECRET_KEY` değerini güncelleyin.
+
+---
+
+## YouTube "Sign in to confirm you're not a bot" Hatası
+
+Bu hata yt-dlp'nin YouTube tarafından engellenmesinden kaynaklanır. Çözümler:
+
+1. **yt-dlp'yi güncelle** (sunucuda):
+   ```bash
+   cd /opt/nouscript
+   source venv/bin/activate
+   pip install -U yt-dlp
+   systemctl restart nouscript
+   ```
+
+2. **Kod güncellemesi** — `player_client` extractor args eklendi. `git pull` ile alıp `systemctl restart nouscript` yapın.
+
+3. **Hâlâ çalışmıyorsa** — Bazı videolar cookies gerektirebilir. [yt-dlp cookies rehberi](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp).

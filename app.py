@@ -172,6 +172,11 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         "no_playlist": True,
     }
 
+    if platform == "youtube":
+        ydl_opts["extractor_args"] = {
+            "youtube": {"player_client": ["web", "android", "ios"]}
+        }
+
     if platform == "twitter":
         ydl_opts["format"] = "bestaudio/best"
         ydl_opts["extractor_args"] = {"twitter": {"api": ["syndication"]}}
