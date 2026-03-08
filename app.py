@@ -65,21 +65,23 @@ FFPROBE: str = ""
 
 
 def _build_search_path() -> str:
-    paths: set[str] = set(os.environ.get("PATH", "").split(os.pathsep))
-    paths.add(os.path.join(os.path.dirname(sys.executable), "Scripts"))
-    paths.add(os.path.join(sys.prefix, "Scripts"))
-    paths.add(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Links"))
-    try:
-        import winreg
-        for root, sub in [
-            (winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
-            (winreg.HKEY_CURRENT_USER, r"Environment"),
-        ]:
-            with winreg.OpenKey(root, sub) as key:
-                val, _ = winreg.QueryValueEx(key, "Path")
-                paths.update(val.split(os.pathsep))
-    except Exception:
-        pass
+    default_path = "/usr/local/bin:/usr/bin:/bin" if sys.platform != "win32" else ""
+    paths: set[str] = set(os.environ.get("PATH", default_path).split(os.pathsep))
+    if sys.platform == "win32":
+        paths.add(os.path.join(os.path.dirname(sys.executable), "Scripts"))
+        paths.add(os.path.join(sys.prefix, "Scripts"))
+        paths.add(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Links"))
+        try:
+            import winreg
+            for root, sub in [
+                (winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+                (winreg.HKEY_CURRENT_USER, r"Environment"),
+            ]:
+                with winreg.OpenKey(root, sub) as key:
+                    val, _ = winreg.QueryValueEx(key, "Path")
+                    paths.update(val.split(os.pathsep))
+        except Exception:
+            pass
     return os.pathsep.join(p for p in paths if p)
 
 
