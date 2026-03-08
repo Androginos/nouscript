@@ -282,12 +282,17 @@ Bu hata yt-dlp'nin YouTube tarafından engellenmesinden kaynaklanır. Çözümle
 
 3. **Cookies kullan** — YouTube bot engelini aşmak için cookies gerekebilir:
 
-   **a) Tarayıcıda cookies export:**
-   - Chrome: [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) eklentisini kur
-   - youtube.com'a git ve giriş yap (Google hesabınla)
-   - Eklenti ikonuna tıkla → "Export" → `cookies.txt` indir
+   **a) Eklenti OLMADAN (önerilen):**
+   - Tarayıcıda youtube.com'a giriş yap
+   - Tarayıcıyı tamamen kapat
+   - Bilgisayarında: `pip install browser_cookie3`
+   - Proje klasöründe: `python export_cookies.py` (veya `python export_cookies.py firefox`)
+   - `cookies.txt` oluşur — eklenti gerekmez
 
-   **b) Sunucuya yükle:**
+   **b) Eklenti ile (alternatif):**
+   - Chrome: "Get cookies.txt LOCALLY" eklentisi → youtube.com'da Export
+
+   **c) Sunucuya yükle:**
    - Hostinger panel → Terminal veya Dosya Yöneticisi
    - `/opt/nouscript/` klasörüne `cookies.txt` dosyasını yükle
    - Veya SCP ile: `scp cookies.txt root@SUNUCU_IP:/opt/nouscript/`
