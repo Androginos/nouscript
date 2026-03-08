@@ -29,8 +29,12 @@ def main():
             cj = browser_cookie3.firefox(domain_name=".youtube.com")
         elif browser == "edge":
             cj = browser_cookie3.edge(domain_name=".youtube.com")
+        elif browser == "opera":
+            cj = browser_cookie3.opera(domain_name=".youtube.com")
+        elif browser == "brave":
+            cj = browser_cookie3.brave(domain_name=".youtube.com")
         else:
-            print("Usage: python export_cookies.py [chrome|firefox|edge]")
+            print("Usage: python export_cookies.py [chrome|firefox|edge|opera|brave]")
             sys.exit(1)
     except Exception as e:
         print(f"Error: {e}")
