@@ -5,6 +5,7 @@
 - **In-Memory Streaming:** `yt-dlp` veriyi doğrudan bir buffer'a akıtmalı, Whisper bu buffer'dan okuma yapmalıdır.
 - **Task Serialization (Queue):** `asyncio.Queue(maxsize=1)` zorunludur. Aynı anda sadece 1 video işlenmeli, diğer istekler bekleme durumuna alınmalıdır.
 - **Multi-Platform Support:** YouTube videoları, X (Twitter) video/ses postları ve kaydedilmiş Twitter Spaces desteklenir. `_detect_platform()` fonksiyonu URL'den platformu otomatik tespit eder. `yt-dlp` tüm platformlar için ortak extractor olarak kullanılır.
+- **YouTube Bot Bypass:** `player_client: ["web", "android", "ios"]` extractor args + `cookies.txt` (opsiyonel).
 
 ## 2. Transcription Engine (Groq-first, Local Fallback)
 - **Primary: Groq Whisper API** — `whisper-large-v3-turbo` modeli, bulut tabanlı, ücretsiz. Çok daha yüksek doğruluk ve hız. `GROQ_API_KEY` `.env`'den okunur.
@@ -12,11 +13,15 @@
 - **Video Language:** Kullanıcı videonun kaynak dilini seçebilir (Auto-detect veya 14 dil). Bu bilgi Whisper'a `language` parametresi olarak iletilir, doğruluğu artırır.
 - **Chunking Strategy:** Uzun videoları 5 dakikalık sanal parçalara (chunks) bölerek işle. Her chunk WAV formatında Groq'a gönderilir (max 25MB/chunk).
 
-## 3. Performance & Memory Management
+## 3. Platform & Binary Discovery
+- **Linux (systemd):** `_build_search_path()` varsayılan PATH kullanır (`/usr/local/bin:/usr/bin:/bin`) — ffmpeg/ffprobe bulunur.
+- **Windows:** WinReg, Scripts yolları kullanılır.
+
+## 4. Performance & Memory Management
 - **Garbage Collection:** Her ağır işlem (transkripsiyon bittikten sonra) `gc.collect()` çağrılarak bellek zorla temizlenmelidir.
 - **Local Resource Savings:** Groq kullanıldığında lokal GPU/CPU yükü sıfıra iner, sadece ffmpeg chunk extraction yapılır.
 
-## 4. Nous Research API Integration
+## 5. Nous Research API Integration
 - **Base URL:** `https://inference-api.nousresearch.com/v1`
 - **Model:** `Hermes-4-70B`
 - **Reasoning Mode:** Sistem isteminde (System Prompt) AI'dan `<think>` tag'lerini kullanarak derin düşünme yapması ve ardından sonucu vermesi kesinlikle istenmelidir.
@@ -24,30 +29,30 @@
 - **Context-Aware Summarization:** Video metadata'sı (başlık, kanal, kategori, etiketler, açıklama) AI'a gönderilir. AI önce videonun türünü/temasını (gaming, eğitim, tech review, podcast vb.) tespit eder, sonra o bağlama uygun terminoloji ve değerlendirme kriterleriyle özetler.
 - **Multi-Language Output:** Kullanıcı seçtiği dilde özet veya altyazı çıktısı alabilir. 14 dil desteklenir.
 
-## 5. Modes
+## 6. Modes
 - **Summary Mode:** Video transcript'i analiz edilip yapılandırılmış özet çıkarılır (Video Type, Main Topic, Key Points, Conclusion).
 - **Subtitle Mode:** Whisper segment'leri timestamp'lerle birlikte hedef dile çevrilir (batch çeviri, Nous API). Çıktı SRT formatında.
 - **Subtitle Translation Robustness:** Batch boyutu 20, max_tokens 8192. Reasoning preamble çeviride kullanılmaz (token tasarrufu). Prompt'ta sansürsüz çeviri talimatı var. Eksik kalan segmentler `_translate_single()` ile bireysel retry yapılır.
 - **Export:** Özetler `.txt`, altyazılar `.srt` olarak dışa aktarılabilir.
 
-## 6. Security & Rate Limiting
+## 7. Security & Rate Limiting
 - **Cloudflare Turnstile:** Bot koruması için entegre. Site key frontend'de, secret key `.env`'de saklanır.
 - **Turnstile Fallback:** Turnstile token varsa Cloudflare'e doğrulatılır; yoksa (widget yüklenemedi) rate limit sıkılaştırılır.
 - **IP Rate Limiting:** Turnstile doğrulanmış kullanıcılar saatte 5, doğrulanmamışlar saatte 3 sorgu yapabilir.
 - **Rate Counter:** Kullanıcıya kalan sorgu hakkı frontend'de gösterilir.
 
-## 7. Error Handling & Safety
+## 8. Error Handling & Safety
 - **Cleanup Guarantee:** Herhangi bir hata durumunda (try-finally bloğu ile) kullanılan tüm buffer'lar `.close()` edilmeli ve bellek serbest bırakılmalıdır.
 - **Feedback:** Kullanıcıya işlemin hangi aşamada olduğu (Downloading, Transcribing, Thinking) anlık SSE ile iletilmelidir.
 - **Global Progress Bar:** Fosforlu gradient animasyonlu ilerleme barı tüm aşamaları yüzdesel olarak gösterir.
 - **beforeunload Warning:** İşlem sırasında sayfa kapatma/yenileme tarayıcı uyarısı verir.
 
-## 8. Query History
+## 9. Query History
 - Tamamlanan sorgular `localStorage`'a kaydedilir (max 20 kayıt).
 - Kullanıcı geçmiş sorguları "Query History" panelinden görüntüleyebilir, tekrar yükleyebilir veya silebilir.
 - Her kayıt: URL, tarih/saat, dil, mod (Summary/Subtitle), sonuç verisi içerir.
 
-## 9. UI & Branding
+## 10. UI & Branding
 - **İsim:** NouScript
 - **Açıklama:** "Multi-Platform Video Intelligence — YouTube, X (Twitter) & Spaces — Powered by Hermes-4-70B by Nous Research."
 - **Logo:** Nous Research SVG logosu, neon glow efekti ile.
@@ -57,7 +62,7 @@
 - **Footer:** Developer profil fotoğrafları (unavatar.io), X ve Discord linkleri, fosforlu tagline.
 - **Responsive Design:** Tek sayfa uygulama, karanlık tema.
 
-## 10. Technology Stack
+## 11. Technology Stack
 - **Backend:** FastAPI (Python), Uvicorn
 - **Transcription:** Groq Whisper API (primary, whisper-large-v3-turbo) + openai-whisper local (fallback, small)
 - **Tools:** yt-dlp (YouTube + X/Twitter + Spaces), openai (Python SDK), ffmpeg/ffprobe
@@ -65,22 +70,34 @@
 - **Frontend:** Single HTML file (inline CSS + JS), SSE (Server-Sent Events)
 - **Environment:** python-dotenv ile `.env` dosyasından konfigürasyon (`NOUS_API_KEY`, `TURNSTILE_SECRET_KEY`, `GROQ_API_KEY`)
 
-## 11. File Structure
+## 12. YouTube Cookies (Bot Bypass)
+- **Sorun:** YouTube "Sign in to confirm you're not a bot" hatası — yt-dlp engellenebilir.
+- **Çözüm:** Sunucuda `cookies.txt` (Netscape format). `COOKIES_FILE` env veya proje kökünde `cookies.txt`.
+- **Tek dosya = tüm kullanıcılar:** Admin bir kez yükler, herkes faydalanır.
+- **export_cookies.py:** Eklenti olmadan cookie export. `python export_cookies.py [chrome|firefox|edge|opera|brave]`. Tarayıcı kapatılmalı. Chrome/Opera Windows'ta "Unable to get key" verebilir → Firefox/Edge dene.
+- **Alternatif:** "Get cookies.txt LOCALLY" eklentisi (açık kaynak, yerel işlem).
+
+## 13. File Structure
 ```
 YouTube AI Summarizer/
 ├── app.py              # FastAPI backend (tüm iş mantığı)
+├── export_cookies.py   # Cookie export (eklenti yok, chrome/firefox/edge/opera/brave)
 ├── static/
 │   └── index.html      # Frontend (tek sayfa uygulama)
 ├── requirements.txt    # Python bağımlılıkları
 ├── .env                # API key'ler ve secret'lar (git'e eklenmez)
+├── cookies.txt         # YouTube cookies (git'e eklenmez, opsiyonel)
 ├── .env.example        # Örnek .env şablonu
-├── .gitignore          # .env, __pycache__ vb.
+├── .gitignore          # .env, cookies.txt, __pycache__ vb.
+├── DEPLOYMENT.md       # Adım adım sunucu kurulum rehberi
 └── .cursorrules        # Bu dosya
 ```
 
-## 12. Deployment (Planned)
-- **Hedef:** Hostinger VPS (Plain Ubuntu 22.04/24.04)
-- **Min Gereksinimler:** 4 GB RAM, 2 vCPU, 20 GB SSD
-- **Stack:** nginx reverse proxy → Uvicorn (systemd servisi)
-- **SSL:** Cloudflare DNS veya Certbot
-- **Docker kullanılmayacak** — tek uygulama, systemd ile yönetim.
+## 14. Deployment (Hostinger VPS — Tamamlandı)
+- **Hedef:** Hostinger VPS (Ubuntu), Canlı: https://nouscript.com
+- **Stack:** nginx reverse proxy (80/443) → Uvicorn (127.0.0.1:8000), systemd servisi
+- **SSL:** Certbot (Let's Encrypt)
+- **Hostinger Firewall:** Varsayılan tüm gelen trafiği engeller. Kabul kuralları ekle: 22 (SSH), 80 (HTTP), 443 (HTTPS)
+- **Systemd PATH:** `Environment="PATH=/usr/local/bin:/usr/bin:/bin:/opt/nouscript/venv/bin"` — ffmpeg için gerekli (minimal env)
+- **Nginx:** `proxy_buffering off` (SSE için), `proxy_read_timeout 86400`
+- **Detaylı rehber:** DEPLOYMENT.md
