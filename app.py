@@ -370,8 +370,14 @@ def download_audio(url: str, user_cookies: str | None = None) -> tuple[io.BytesI
                 return result
             # Invidious başarısız, yt-dlp fallback
 
+    # Format fallback: bazı videolarda bestaudio/best yok; sırayla dene
+    _FORMAT_FALLBACKS = [
+        "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
+        "bestaudio/best",
+        "best",
+        "worst",
+    ]
     ydl_opts = {
-        "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best/worst",
         "quiet": True,
         "no_warnings": True,
         "no_playlist": True,
@@ -416,26 +422,61 @@ def download_audio(url: str, user_cookies: str | None = None) -> tuple[io.BytesI
         }
 
     if platform == "twitter":
-        ydl_opts["format"] = "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best/worst"
+        _FORMAT_FALLBACKS = ["bestaudio/best", "best", "worst"]
         # Broadcast URL'leri syndication API ile sorun çıkarabilir; sadece normal tweet'lerde kullan
         if not _is_broadcast_url(url):
             ydl_opts["extractor_args"] = {"twitter": {"api": ["syndication"]}}
+    else:
+        _FORMAT_FALLBACKS = [
+            "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
+            "bestaudio/best",
+            "best",
+            "worst",
+        ]
+
+    last_err: Exception | None = None
+    for fmt in _FORMAT_FALLBACKS:
+        ydl_opts["format"] = fmt
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts.copy()) as ydl:
+                info = ydl.extract_info(url, download=False)
+            break
+        except Exception as e:
+            err_str = str(e)
+            if "format is not available" in err_str or "Requested format" in err_str:
+                last_err = e
+                continue
+            raise
+    else:
+        if last_err:
+            raise last_err
+        raise RuntimeError("No format available")
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+        formats = info.get("formats") or []
+        audio_url = info.get("url", "")
 
-            formats = info.get("formats") or []
-            audio_url = info.get("url", "")
-            if not audio_url and formats:
-                for f in reversed(formats):
-                    if f.get("acodec") and f["acodec"] != "none":
-                        audio_url = f["url"]
-                        break
-                if not audio_url:
-                    audio_url = formats[-1].get("url", "")
+        # Merge format (bv+ba): ses URL'sini requested_formats'tan al
+        if not audio_url and info.get("requested_formats"):
+            for rf in info["requested_formats"]:
+                if rf.get("acodec") and rf["acodec"] != "none":
+                    audio_url = rf.get("url", "")
+                    break
+            if not audio_url:
+                audio_url = info["requested_formats"][-1].get("url", "")
 
-            duration = float(info.get("duration") or 0)
+        if not audio_url and formats:
+            for f in reversed(formats):
+                if f.get("acodec") and f["acodec"] != "none":
+                    audio_url = f["url"]
+                    break
+            if not audio_url:
+                audio_url = formats[-1].get("url", "")
+
+        if not audio_url:
+            raise RuntimeError("No audio URL from yt-dlp")
+
+        duration = float(info.get("duration") or 0)
 
         meta = {
             "title": info.get("title", "") or info.get("fulltitle", ""),
