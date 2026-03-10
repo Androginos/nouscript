@@ -29,8 +29,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 
-RATE_LIMIT_MAX = 5
-RATE_LIMIT_MAX_UNVERIFIED = 3
+RATE_LIMIT_MAX = 10
+RATE_LIMIT_MAX_UNVERIFIED = 5
 RATE_LIMIT_MAX_RAPIDAPI = 100  # RapidAPI kullanıcıları için
 RATE_LIMIT_WINDOW = 3600  # 1 hour
 rate_limit_store: dict[str, list[float]] = {}  # ip/key -> [timestamps]
