@@ -612,6 +612,10 @@ def _download_audio_via_rapidapi_social(
         print(f"[RapidAPI] API error: {e}")
         return None
 
+    # Hata varsa logla (X vb. için API farklı yanıt verebilir)
+    if api_data.get("error") or api_data.get("status") == "error":
+        print(f"[RapidAPI social] API error: {api_data.get('message', '')[:80]}")
+
     download_url = (
         api_data.get("link")
         or api_data.get("downloadUrl")
@@ -620,6 +624,8 @@ def _download_audio_via_rapidapi_social(
     )
     if not download_url:
         medias = api_data.get("medias")
+        if not medias and isinstance(api_data.get("data"), dict):
+            medias = api_data["data"].get("medias")
         if isinstance(medias, list) and medias:
             # TikTok: audio (mp3) tercih et, yoksa ilk medya
             for m in medias:
@@ -638,13 +644,28 @@ def _download_audio_via_rapidapi_social(
                 data = data[0]
             if isinstance(data, dict):
                 download_url = data.get("url") or data.get("link") or data.get("downloadUrl")
+                if not download_url:
+                    dmedias = data.get("medias")
+                    if isinstance(dmedias, list) and dmedias and isinstance(dmedias[0], dict):
+                        for m in dmedias:
+                            if (m.get("type") or "").lower() == "audio":
+                                download_url = m.get("url") or m.get("link")
+                                break
+                        if not download_url:
+                            download_url = dmedias[0].get("url") or dmedias[0].get("link")
     if not download_url or not str(download_url).startswith(("http://", "https://")):
-        print(f"[RapidAPI] No download link. Keys: {list(api_data.keys())}")
+        msg = api_data.get("message", "")[:80]
+        print(f"[RapidAPI social] No download link. status={api_data.get('status')} message={msg!r} keys={list(api_data.keys())}")
         return None
 
     # Ses dosyasını stream ile belleğe al (disk yok)
-    # Referer platforma göre (TikTok/googlevideo)
-    ref = "https://www.tiktok.com/" if platform == "tiktok" else "https://www.youtube.com/"
+    # Referer platforma göre
+    if platform == "tiktok":
+        ref = "https://www.tiktok.com/"
+    elif platform == "twitter":
+        ref = "https://x.com/"
+    else:
+        ref = "https://www.youtube.com/"
     download_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Referer": ref,
