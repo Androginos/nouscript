@@ -223,7 +223,7 @@ def _download_audio_via_ytdlp_subprocess(
         "--audio-format", "opus", "--audio-quality", "0",
     ]
     if cookies_path:
-        cmd.extend(["--cookiefile", cookies_path])
+        cmd.extend(["--cookies", cookies_path])
     if platform == "youtube":
         cmd.extend(["--extractor-args", "youtube:player_client=mweb,android,web"])
     cmd.append(url)
