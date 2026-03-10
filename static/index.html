@@ -265,7 +265,7 @@
         </div>
       </label>
     </div>
-    <div class="rate-counter">Queries remaining: <span class="count" id="rateCount">-</span> / 5 per hour</div>
+    <div class="rate-counter">Queries remaining: <span class="count" id="rateCount">-</span> / <span id="rateMax">10</span> per hour</div>
     <form id="form" class="input-row" autocomplete="off">
       <input id="urlInput" type="text" placeholder="Paste a YouTube or X (Twitter) video link..." required />
       <button class="btn" type="submit" id="submitBtn">Process</button>
@@ -399,12 +399,16 @@ function renderTurnstile(){
 }
 renderTurnstile();
 
+const rateMax=document.getElementById("rateMax");
 async function refreshRateCount(){
   try{
     const res=await fetch("/api/remaining");
     const data=await res.json();
-    rateCount.textContent=data.remaining;
-    rateCount.className="count"+(data.remaining<=3?" danger":data.remaining<=5?" warn":"");
+    const rem=data.remaining;
+    const max=data.max||10;
+    rateCount.textContent=rem;
+    if(rateMax)rateMax.textContent=max;
+    rateCount.className="count"+(rem<=3?" danger":rem<=5?" warn":"");
   }catch(e){}
 }
 refreshRateCount();
@@ -587,7 +591,7 @@ form.addEventListener("submit",async(e)=>{
   const source_lang=sourceLangSelect.value;
 
   try{
-    const params=new URLSearchParams({url,mode,lang,source_lang,cf_token:cfToken||""});
+    const params=new URLSearchParams({url,mode,lang,source_lang,cf_token:cfToken||"",_t:Date.now()});
     const sse=new EventSource("/api/process?"+params);
 
     sse.onmessage=(event)=>{
