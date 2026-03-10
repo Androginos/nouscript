@@ -436,8 +436,17 @@ def _download_audio_via_rapidapi_social(
     if not download_url:
         medias = api_data.get("medias")
         if isinstance(medias, list) and medias:
-            m = medias[0] if isinstance(medias[0], dict) else {}
-            download_url = m.get("url") or m.get("link")
+            # TikTok: audio (mp3) tercih et, yoksa ilk medya
+            for m in medias:
+                if not isinstance(m, dict):
+                    continue
+                if (m.get("type") or "").lower() == "audio":
+                    download_url = m.get("url") or m.get("link")
+                    if download_url:
+                        break
+            if not download_url:
+                m = medias[0] if isinstance(medias[0], dict) else {}
+                download_url = m.get("url") or m.get("link")
         if not download_url:
             data = api_data.get("data") or api_data.get("result")
             if isinstance(data, list) and data and isinstance(data[0], dict):
@@ -449,18 +458,19 @@ def _download_audio_via_rapidapi_social(
         return None
 
     # Ses dosyasını stream ile belleğe al (disk yok)
-    # googlevideo.com: Chrome UA + Origin + Range (403 bypass denemesi)
+    # Referer platforma göre (TikTok/googlevideo)
+    ref = "https://www.tiktok.com/" if platform == "tiktok" else "https://www.youtube.com/"
     download_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://www.youtube.com/",
-        "Origin": "https://www.youtube.com",
+        "Referer": ref,
+        "Origin": ref.rstrip("/"),
         "Range": "bytes=0-",
     }
     try:
         with httpx.Client(timeout=120.0, follow_redirects=True) as client:
             with client.stream("GET", download_url, headers=download_headers) as stream:
                 if stream.status_code not in (200, 206):
-                    print(f"[RapidAPI] Download error: {stream.status_code}")
+                    print(f"[RapidAPI social] Download {stream.status_code}")
                     return None
                 audio_buffer = io.BytesIO()
                 for chunk in stream.iter_bytes(chunk_size=8192):
@@ -496,6 +506,9 @@ def _download_audio_via_rapidapi_social(
 
     buffer = io.BytesIO(proc.stdout)
     duration = float(api_data.get("duration") or api_data.get("lengthSeconds") or 0)
+    # TikTok: duration ms cinsinden olabilir (>10000 ise ms kabul et)
+    if duration > 10000:
+        duration = duration / 1000.0
     if duration <= 0 and len(proc.stdout) > 0:
         duration = _get_duration_from_buffer(buffer)
         buffer.seek(0)
