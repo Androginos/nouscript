@@ -275,6 +275,108 @@ def _rapidapi_hosts() -> list[str]:
     return [host] if host else []
 
 
+def _download_audio_via_rapidapi_ytapi(
+    url: str, host: str, api_key: str
+) -> tuple[io.BytesIO, float, dict] | None:
+    """yt-api.p.rapidapi.com: GET /dl?id=VIDEO_ID - stream URL döner."""
+    video_id = _extract_youtube_video_id(url)
+    if not video_id:
+        return None
+    api_url = f"https://{host.rstrip('/')}/dl?id={video_id}"
+    headers = {"X-RapidAPI-Key": api_key, "X-RapidAPI-Host": host}
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            r = client.get(api_url, headers=headers)
+            if r.status_code != 200:
+                print(f"[RapidAPI yt-api] {r.status_code} {r.text[:150]}")
+                return None
+            api_data = r.json()
+    except Exception as e:
+        print(f"[RapidAPI yt-api] {e}")
+        return None
+
+    # stream URL çıkar: streamingData, format, url vb.
+    download_url = None
+    streaming = api_data.get("streamingData") or {}
+    formats = streaming.get("adaptiveFormats") or streaming.get("formats") or []
+    for f in formats:
+        if isinstance(f, dict):
+            mime = (f.get("mimeType") or "").lower()
+            if "audio" in mime:
+                u = f.get("url")
+                if u and str(u).startswith(("http://", "https://")):
+                    download_url = u
+                    break
+    if not download_url and formats:
+        f0 = formats[0] if isinstance(formats[0], dict) else {}
+        download_url = f0.get("url")
+    if not download_url:
+        download_url = api_data.get("url") or api_data.get("streamingUrl")
+    if not download_url or not str(download_url).startswith(("http://", "https://")):
+        print(f"[RapidAPI yt-api] No stream URL. Keys: {list(api_data.keys())}")
+        return None
+
+    download_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0",
+        "Referer": "https://www.youtube.com/",
+    }
+    try:
+        with httpx.Client(timeout=120.0, follow_redirects=True) as client:
+            with client.stream("GET", download_url, headers=download_headers) as stream:
+                if stream.status_code != 200:
+                    print(f"[RapidAPI yt-api] Download {stream.status_code}")
+                    return None
+                audio_buffer = io.BytesIO()
+                for chunk in stream.iter_bytes(chunk_size=8192):
+                    audio_buffer.write(chunk)
+    except Exception as e:
+        print(f"[RapidAPI yt-api] Download error: {e}")
+        return None
+
+    audio_buffer.seek(0)
+    raw_data = audio_buffer.read()
+    audio_buffer.seek(0)
+    if len(raw_data) < 1000:
+        print("[RapidAPI yt-api] Data too small")
+        return None
+
+    proc = subprocess.run(
+        [
+            FFMPEG, "-i", "pipe:0",
+            "-vn", "-acodec", "libopus", "-ar", str(SAMPLE_RATE), "-ac", "1",
+            "-f", "ogg", "-loglevel", "error", "pipe:1",
+        ],
+        input=raw_data,
+        capture_output=True,
+        timeout=120,
+    )
+    if proc.returncode != 0:
+        print(f"[RapidAPI yt-api] FFmpeg: {proc.stderr.decode(errors='ignore')[:150]}")
+        return None
+
+    buffer = io.BytesIO(proc.stdout)
+    vid = api_data.get("videoDetails") or {}
+    duration = float(vid.get("lengthSeconds") or api_data.get("lengthSeconds") or 0)
+    if duration <= 0:
+        duration = _get_duration_from_buffer(buffer)
+        buffer.seek(0)
+    if duration <= 0 and len(proc.stdout) > 1000:
+        duration = max(60.0, len(proc.stdout) / 3000.0)
+
+    title = str(vid.get("title") or api_data.get("title") or "")
+    author = str(vid.get("author") or api_data.get("author") or "")
+    meta = {
+        "title": title,
+        "description": str(api_data.get("description", ""))[:500],
+        "channel": author,
+        "categories": "",
+        "tags": "",
+        "platform": "youtube",
+    }
+    print(f"[RapidAPI yt-api] OK ({host}): {url[:50]}...")
+    return buffer, duration, meta
+
+
 def _download_audio_via_rapidapi_social(
     url: str, platform: str, host: str | None = None
 ) -> tuple[io.BytesIO, float, dict] | None:
@@ -567,7 +669,10 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         raise RuntimeError("RAPIDAPI_KEY and RAPIDAPI_HOSTS (or RAPIDAPI_YOUTUBE_HOST) required")
 
     for host in hosts:
-        result = _download_audio_via_rapidapi_social(url, platform, host)
+        if "yt-api" in host.lower():
+            result = _download_audio_via_rapidapi_ytapi(url, host, api_key)
+        else:
+            result = _download_audio_via_rapidapi_social(url, platform, host)
         if result is not None:
             return result
         print(f"[RapidAPI] {host} başarısız, sonraki deneniyor...")
