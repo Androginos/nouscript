@@ -393,6 +393,96 @@ def _download_audio_via_rapidapi_ytapi(
     return buffer, duration, meta
 
 
+def _download_audio_via_rapidapi_ytvideodl(
+    url: str, host: str, api_key: str
+) -> tuple[io.BytesIO, float, dict] | None:
+    """
+    youtube-video-download.p.rapidapi.com: GET /video?videourl=URL
+    Proxied/CDN URL dönebilir (googlevideo 403 bypass).
+    """
+    if "youtube.com" not in url and "youtu.be" not in url:
+        return None
+    api_url = f"https://{host.rstrip('/')}/video?videourl={urllib.parse.quote(url)}"
+    headers = {"X-RapidAPI-Key": api_key, "X-RapidAPI-Host": host}
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            r = client.get(api_url, headers=headers)
+            if r.status_code != 200:
+                print(f"[RapidAPI yt-videodl] {r.status_code}")
+                return None
+            api_data = r.json()
+    except Exception as e:
+        print(f"[RapidAPI yt-videodl] {e}")
+        return None
+
+    download_url = (
+        api_data.get("link") or api_data.get("url") or api_data.get("downloadUrl")
+        or api_data.get("download_link")
+    )
+    if not download_url:
+        links = api_data.get("links") or api_data.get("formats") or []
+        for item in links if isinstance(links, list) else []:
+            if isinstance(item, dict) and (item.get("url") or item.get("link")):
+                download_url = item.get("url") or item.get("link")
+                break
+    if not download_url or not str(download_url).startswith(("http://", "https://")):
+        print(f"[RapidAPI yt-videodl] No URL. Keys: {list(api_data.keys())[:10]}")
+        return None
+
+    print(f"[RapidAPI yt-videodl] Downloading... ({download_url[:60]}...)")
+    headers_dl = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://www.youtube.com/",
+    }
+    try:
+        with httpx.Client(timeout=120.0, follow_redirects=True) as client:
+            r = client.get(download_url, headers=headers_dl)
+            if r.status_code not in (200, 206):
+                print(f"[RapidAPI yt-videodl] Download {r.status_code}")
+                return None
+            raw_data = r.content
+    except Exception as e:
+        print(f"[RapidAPI yt-videodl] Download error: {e}")
+        return None
+
+    if len(raw_data) < 1000 or raw_data[:4] == b"<htm" or raw_data[:5] == b"<!DOC":
+        print(f"[RapidAPI yt-videodl] Invalid data ({len(raw_data)} bytes)")
+        return None
+
+    proc = subprocess.run(
+        [
+            FFMPEG, "-i", "pipe:0",
+            "-vn", "-acodec", "libopus", "-ar", str(SAMPLE_RATE), "-ac", "1",
+            "-f", "ogg", "-loglevel", "error", "pipe:1",
+        ],
+        input=raw_data,
+        capture_output=True,
+        timeout=120,
+    )
+    if proc.returncode != 0:
+        print(f"[RapidAPI yt-videodl] FFmpeg: {proc.stderr.decode(errors='ignore')[:100]}")
+        return None
+
+    buffer = io.BytesIO(proc.stdout)
+    duration = float(api_data.get("duration") or api_data.get("lengthSeconds") or 0)
+    if duration <= 0:
+        duration = _get_duration_from_buffer(buffer)
+        buffer.seek(0)
+    if duration <= 0 and len(proc.stdout) > 1000:
+        duration = max(60.0, len(proc.stdout) / 3000.0)
+
+    meta = {
+        "title": str(api_data.get("title", ""))[:500],
+        "description": str(api_data.get("description", ""))[:500],
+        "channel": str(api_data.get("channel") or api_data.get("author", "")),
+        "categories": "",
+        "tags": "",
+        "platform": "youtube",
+    }
+    print(f"[RapidAPI yt-videodl] OK: {url[:50]}...")
+    return buffer, duration, meta
+
+
 def _download_audio_via_rapidapi_social(
     url: str, platform: str, host: str | None = None
 ) -> tuple[io.BytesIO, float, dict] | None:
@@ -702,6 +792,8 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
     for host in hosts:
         if "yt-api" in host.lower():
             result = _download_audio_via_rapidapi_ytapi(url, host, api_key)
+        elif "youtube-video-download" in host.lower():
+            result = _download_audio_via_rapidapi_ytvideodl(url, host, api_key)
         else:
             result = _download_audio_via_rapidapi_social(url, platform, host)
         if result is not None:
