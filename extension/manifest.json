@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "NouScript YouTube Cookies",
+  "version": "1.0",
+  "description": "YouTube cookie'lerini NouScript ile paylaşmak için izin verir. Sadece 'İzin ver' butonuna tıkladığınızda çalışır.",
+  "permissions": ["cookies"],
+  "host_permissions": [
+    "https://*.youtube.com/*",
+    "https://*.google.com/*",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
