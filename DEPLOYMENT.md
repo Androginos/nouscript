@@ -148,8 +148,10 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/nouscript
-Environment="PATH=/opt/nouscript/venv/bin"
+EnvironmentFile=-/opt/nouscript/.env
+Environment="PATH=/opt/nouscript/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="COOKIES_FILE=/opt/nouscript/cookies.txt"
+Environment="INVIDIOUS_URL=http://localhost:3000"
 ExecStart=/opt/nouscript/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=5
@@ -270,6 +272,23 @@ Canlı sitede Turnstile kullanıyorsanız, Cloudflare panelinde domain'inizi ekl
 ## YouTube "Sign in to confirm you're not a bot" Hatası
 
 Bu hata yt-dlp'nin YouTube tarafından engellenmesinden kaynaklanır. Çözümler:
+
+### Önerilen: Invidious (cookie gerektirmez)
+
+Sunucuda Invidious kurarak YouTube videolarını cookie olmadan işleyebilirsiniz. Detaylı kurulum: **[INVIDIOUS_SETUP.md](INVIDIOUS_SETUP.md)**
+
+Kısa özet:
+```bash
+mkdir -p /opt/invidious && cd /opt/invidious
+# docker-compose.yml oluştur (INVIDIOUS_SETUP.md'deki içerik)
+docker-compose up -d
+pip install httpx  # nouscript venv içinde
+systemctl restart nouscript
+```
+
+---
+
+### Alternatif: yt-dlp + cookies
 
 1. **yt-dlp'yi güncelle** (sunucuda):
    ```bash

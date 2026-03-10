@@ -5,6 +5,7 @@ import json
 import math
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,7 @@ import urllib.parse
 import struct
 import tempfile
 
+import httpx
 import numpy as np
 import yt_dlp
 from dotenv import load_dotenv
@@ -60,6 +62,10 @@ NOUS_REASONING_PREAMBLE = (
 whisper_model = None
 processing_queue: asyncio.Queue = asyncio.Queue(maxsize=1)
 
+# Kullanıcı tarafından sağlanan YouTube cookie'leri (cookie_id -> (content, timestamp))
+_user_cookies_store: dict[str, tuple[str, float]] = {}
+_USER_COOKIES_TTL = 600  # 10 dakika
+
 FFMPEG: str = ""
 FFPROBE: str = ""
 
@@ -98,7 +104,22 @@ def _resolve_tools():
     FFPROBE = _find_binary("ffprobe")
     print(f"[OK] ffmpeg  : {FFMPEG}")
     print(f"[OK] ffprobe : {FFPROBE}")
-    # Cookie durumu (YouTube için)
+    # Invidious (YouTube için, cookie gerektirmez)
+    urls = _invidious_urls()
+    ok = False
+    for u in urls:
+        try:
+            r = urllib.request.urlopen(f"{u.rstrip('/')}/api/v1/stats", timeout=3)
+            if r.status == 200:
+                print(f"[OK] invidious : {u}")
+                ok = True
+                break
+        except Exception as e:
+            print(f"[INFO] invidious : {u} not reachable ({e})")
+    if not ok:
+        print("[INFO] invidious : no instance reachable - YouTube will use yt-dlp fallback")
+
+    # Cookie durumu (yt-dlp fallback için)
     for base in (os.path.dirname(os.path.abspath(__file__)), os.getcwd()):
         p = os.path.join(base, "cookies.txt")
         if os.path.isfile(p):
@@ -108,7 +129,7 @@ def _resolve_tools():
         if os.getenv("COOKIES_FILE"):
             print(f"[WARN] cookies : COOKIES_FILE set but file not found")
         else:
-            print("[INFO] cookies  : cookies.txt not found (YouTube may need it)")
+            print("[INFO] cookies  : cookies.txt not found (yt-dlp fallback may need it)")
 
 
 def strip_think_tags(text: str) -> str:
@@ -166,6 +187,140 @@ def _nous_client() -> OpenAI:
 
 # -- Audio (in-memory) -------------------------------------------------------
 
+def _invidious_urls() -> list[str]:
+    """INVIDIOUS_URL'den URL listesi döner. Virgülle ayrılmış birden fazla olabilir."""
+    raw = os.getenv("INVIDIOUS_URL", "http://localhost:3000")
+    return [u.strip() for u in raw.split(",") if u.strip()]
+
+
+INVIDIOUS_BASE = os.getenv("INVIDIOUS_URL", "http://localhost:3000")  # ilk URL (geriye uyumluluk)
+
+
+def _extract_youtube_video_id(url: str) -> str | None:
+    """YouTube URL'den video_id çıkar. watch?v=, youtu.be/, shorts/ desteklenir."""
+    if not url or ("youtube.com" not in url and "youtu.be" not in url):
+        return None
+    # youtu.be/VIDEO_ID
+    m = re.search(r"youtu\.be/([a-zA-Z0-9_-]{11})", url)
+    if m:
+        return m.group(1)
+    # youtube.com/shorts/VIDEO_ID
+    m = re.search(r"youtube\.com/shorts/([a-zA-Z0-9_-]{11})", url)
+    if m:
+        return m.group(1)
+    # youtube.com/watch?v=VIDEO_ID
+    m = re.search(r"[?&]v=([a-zA-Z0-9_-]{11})", url)
+    if m:
+        return m.group(1)
+    # youtube.com/embed/VIDEO_ID
+    m = re.search(r"youtube\.com/embed/([a-zA-Z0-9_-]{11})", url)
+    if m:
+        return m.group(1)
+    return None
+
+
+def _download_audio_via_invidious(video_id: str) -> tuple[io.BytesIO, float, dict] | None:
+    """Invidious API ile ses indir. Birden fazla URL denenir. Başarısızsa None döner."""
+    urls = _invidious_urls()
+    data = None
+    base_used = None
+
+    for base in urls:
+        base = base.rstrip("/")
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                r = client.get(f"{base}/api/v1/videos/{video_id}")
+                if r.status_code != 200:
+                    err_body = r.text[:200] if r.text else ""
+                    print(f"[Invidious] {base} API error: {r.status_code} {err_body[:80]}")
+                    continue
+                data = r.json()
+                if data.get("error"):
+                    print(f"[Invidious] {base} error: {data.get('error', 'unknown')[:80]}")
+                    continue
+                base_used = base
+                break
+        except Exception as e:
+            print(f"[Invidious] {base} Error: {e}")
+            continue
+
+    if not data or not base_used:
+        return None
+
+    formats = data.get("adaptiveFormats") or data.get("formatStreams") or []
+    audio_formats = [
+        f for f in formats
+        if isinstance(f, dict) and (f.get("type") or "").startswith("audio/")
+    ]
+    if not audio_formats:
+        print("[Invidious] No audio format found")
+        return None
+
+    # En yüksek bitrate'li ses formatını seç (bitrate string veya int olabilir)
+    def _bitrate_val(f: dict) -> int:
+        try:
+            b = f.get("bitrate") or 0
+            return int(b) if b else 0
+        except (ValueError, TypeError):
+            return 0
+
+    best = max(audio_formats, key=_bitrate_val)
+    audio_url = best.get("url")
+    if not audio_url:
+        print("[Invidious] No URL in audio format")
+        return None
+    if not audio_url.startswith(("http://", "https://")):
+        audio_url = (base_used.rstrip("/") + "/" + audio_url.lstrip("/"))
+
+    # Ses verisini stream et (in-memory)
+    try:
+        with httpx.Client(timeout=120.0, follow_redirects=True) as client:
+            r = client.get(audio_url)
+            if r.status_code != 200:
+                print(f"[Invidious] Stream error: {r.status_code}")
+                return None
+            raw_data = r.content
+    except Exception as e:
+        print(f"[Invidious] Stream Error: {e}")
+        return None
+
+    if not raw_data:
+        return None
+
+    # ffmpeg ile ogg/opus 16kHz'e dönüştür (pipe üzerinden, disk yok)
+    proc = subprocess.run(
+        [
+            FFMPEG, "-i", "pipe:0",
+            "-vn", "-acodec", "libopus", "-ar", str(SAMPLE_RATE), "-ac", "1",
+            "-f", "ogg", "-loglevel", "error", "pipe:1",
+        ],
+        input=raw_data,
+        capture_output=True,
+        timeout=120,
+    )
+    if proc.returncode != 0:
+        print(f"[Invidious] FFmpeg error: {proc.stderr.decode(errors='ignore')[:200]}")
+        return None
+
+    buffer = io.BytesIO(proc.stdout)
+    duration = float(data.get("lengthSeconds") or 0)
+    if duration <= 0 and len(proc.stdout) > 0:
+        duration = _get_duration_from_buffer(buffer)
+        buffer.seek(0)
+    if duration <= 0 and len(proc.stdout) > 1000:
+        duration = max(60.0, len(proc.stdout) / 3000.0)
+
+    meta = {
+        "title": data.get("title", ""),
+        "description": (data.get("description") or "")[:500],
+        "channel": data.get("author", "") or data.get("channel", ""),
+        "categories": "",
+        "tags": ", ".join((data.get("keywords") or [])[:15]) if isinstance(data.get("keywords"), list) else "",
+        "platform": "youtube",
+    }
+    print(f"[Invidious] OK: {video_id}")
+    return buffer, duration, meta
+
 
 def _detect_platform(url: str) -> str:
     if "twitter.com" in url or "x.com" in url:
@@ -203,8 +358,17 @@ def _get_duration_from_buffer(buffer: io.BytesIO) -> float:
         return 0.0
 
 
-def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
+def download_audio(url: str, user_cookies: str | None = None) -> tuple[io.BytesIO, float, dict]:
     platform = _detect_platform(url)
+
+    # YouTube: Önce Invidious dene (cookie gerektirmez)
+    if platform == "youtube":
+        video_id = _extract_youtube_video_id(url)
+        if video_id:
+            result = _download_audio_via_invidious(video_id)
+            if result is not None:
+                return result
+            # Invidious başarısız, yt-dlp fallback
 
     ydl_opts = {
         "format": "bestaudio/best",
@@ -213,31 +377,38 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         "no_playlist": True,
     }
 
-    def _find_cookies() -> str | None:
-        if p := os.getenv("COOKIES_FILE"):
-            return p if os.path.isfile(p) else None
-        for base in (
-            os.path.dirname(os.path.abspath(__file__)),
-            os.getcwd(),
-        ):
-            p = os.path.join(base, "cookies.txt")
-            if os.path.isfile(p):
-                return p
-        return None
-
-    cookies_path = _find_cookies()
     cookies_tmp_path: str | None = None
-    if cookies_path:
-        # Windows'ta oluşturulan dosyalar CRLF kullanır; Linux/sunucu LF bekler
-        with open(cookies_path, "r", encoding="utf-8", errors="ignore") as f:
-            cookie_content = f.read().replace("\r\n", "\n").replace("\r", "\n")
-        if cookie_content.strip():
-            tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8")
-            tmp.write(cookie_content)
-            tmp.close()
-            cookies_tmp_path = tmp.name
-            ydl_opts["cookiefile"] = cookies_tmp_path
-            print(f"[Cookies] Using: {cookies_path} -> {cookies_tmp_path}")
+    cookie_content: str | None = None
+
+    if user_cookies and user_cookies.strip():
+        # Kullanıcı kendi cookie'lerini sağladı (öncelikli)
+        cookie_content = user_cookies.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not cookie_content:
+        # Sunucu cookie dosyası (fallback)
+        def _find_cookies() -> str | None:
+            if p := os.getenv("COOKIES_FILE"):
+                return p if os.path.isfile(p) else None
+            for base in (
+                os.path.dirname(os.path.abspath(__file__)),
+                os.getcwd(),
+            ):
+                p = os.path.join(base, "cookies.txt")
+                if os.path.isfile(p):
+                    return p
+            return None
+
+        cookies_path = _find_cookies()
+        if cookies_path:
+            with open(cookies_path, "r", encoding="utf-8", errors="ignore") as f:
+                cookie_content = f.read().replace("\r\n", "\n").replace("\r", "\n").strip()
+
+    if cookie_content:
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8")
+        tmp.write(cookie_content)
+        tmp.close()
+        cookies_tmp_path = tmp.name
+        ydl_opts["cookiefile"] = cookies_tmp_path
+        print(f"[Cookies] Using: {'user-provided' if user_cookies else 'server'}")
 
     if platform == "youtube":
         ydl_opts["extractor_args"] = {
@@ -609,8 +780,9 @@ async def worker():
 
         try:
             # 1) Download
+            user_cookies = task.get("user_cookies")
             await progress.put({"stage": "downloading", "message": "Downloading audio..."})
-            audio_buffer, duration, video_meta = await asyncio.to_thread(download_audio, url)
+            audio_buffer, duration, video_meta = await asyncio.to_thread(download_audio, url, user_cookies)
             num_chunks = math.ceil(duration / CHUNK_DURATION)
 
             await progress.put({
@@ -752,8 +924,35 @@ async def api_remaining(request: Request):
     })
 
 
+@app.post("/api/register-cookies")
+async def register_cookies(request: Request):
+    """Kullanıcı cookie'lerini geçici olarak kaydet, cookie_id döndür."""
+    try:
+        body = await request.json()
+        cookies = body.get("cookies", "").strip()
+    except Exception:
+        return JSONResponse({"error": "Invalid request"}, status_code=400)
+    if not cookies or len(cookies) > 100_000:
+        return JSONResponse({"error": "Invalid cookies"}, status_code=400)
+    now = time.time()
+    # Eski kayıtları temizle
+    global _user_cookies_store
+    _user_cookies_store = {k: v for k, v in _user_cookies_store.items() if now - v[1] < _USER_COOKIES_TTL}
+    cookie_id = secrets.token_urlsafe(16)
+    _user_cookies_store[cookie_id] = (cookies, now)
+    return JSONResponse({"cookie_id": cookie_id})
+
+
 @app.get("/api/process")
-async def process(request: Request, url: str, mode: str = "summary", lang: str = "English", source_lang: str = "Auto", cf_token: str = ""):
+async def process(
+    request: Request,
+    url: str,
+    mode: str = "summary",
+    lang: str = "English",
+    source_lang: str = "Auto",
+    cf_token: str = "",
+    cookie_id: str = "",
+):
     ip = request.client.host
 
     turnstile_result = verify_turnstile(cf_token)
@@ -767,11 +966,24 @@ async def process(request: Request, url: str, mode: str = "summary", lang: str =
         msg = f"Rate limit reached ({limit}/hour)." + ("" if verified else " Complete bot verification for higher limits.")
         return JSONResponse({"error": msg}, status_code=429)
 
+    user_cookies: str | None = None
+    if cookie_id:
+        entry = _user_cookies_store.pop(cookie_id, None)
+        if entry:
+            user_cookies = entry[0]
+
     progress_queue: asyncio.Queue = asyncio.Queue()
 
     async def event_stream():
         whisper_lang = LANG_CODE_MAP.get(source_lang)
-        task = {"url": url, "mode": mode, "lang": lang, "source_lang": whisper_lang, "progress": progress_queue}
+        task = {
+            "url": url,
+            "mode": mode,
+            "lang": lang,
+            "source_lang": whisper_lang,
+            "progress": progress_queue,
+            "user_cookies": user_cookies,
+        }
 
         if processing_queue.full():
             yield sse({"stage": "waiting", "message": "Waiting in queue..."})
