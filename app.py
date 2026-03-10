@@ -19,7 +19,6 @@ import tempfile
 
 import httpx
 import numpy as np
-import yt_dlp
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -100,32 +99,13 @@ def _resolve_tools():
     FFPROBE = _find_binary("ffprobe")
     print(f"[OK] ffmpeg  : {FFMPEG}")
     print(f"[OK] ffprobe : {FFPROBE}")
-    # Invidious (YouTube için, cookie gerektirmez)
-    urls = _invidious_urls()
-    ok = False
-    for u in urls:
-        try:
-            r = urllib.request.urlopen(f"{u.rstrip('/')}/api/v1/stats", timeout=3)
-            if r.status == 200:
-                print(f"[OK] invidious : {u}")
-                ok = True
-                break
-        except Exception as e:
-            print(f"[INFO] invidious : {u} not reachable ({e})")
-    if not ok:
-        print("[INFO] invidious : no instance reachable - YouTube will use yt-dlp fallback")
-
-    # Cookie durumu (yt-dlp fallback için)
-    for base in (os.path.dirname(os.path.abspath(__file__)), os.getcwd()):
-        p = os.path.join(base, "cookies.txt")
-        if os.path.isfile(p):
-            print(f"[OK] cookies  : {p}")
-            break
+    hosts = _rapidapi_hosts()
+    if os.getenv("RAPIDAPI_KEY") and hosts:
+        names = [h.split(".")[0] for h in hosts[:3]]
+        print(f"[OK] RapidAPI : {len(hosts)} host ({', '.join(names)}{'...' if len(hosts) > 3 else ''})")
     else:
-        if os.getenv("COOKIES_FILE"):
-            print(f"[WARN] cookies : COOKIES_FILE set but file not found")
-        else:
-            print("[INFO] cookies  : cookies.txt not found (yt-dlp fallback may need it)")
+        print("[WARN] RapidAPI : RAPIDAPI_KEY and RAPIDAPI_HOSTS required")
+
 
 
 def strip_think_tags(text: str) -> str:
@@ -211,6 +191,18 @@ def _invidious_urls() -> list[str]:
 INVIDIOUS_BASE = os.getenv("INVIDIOUS_URL", "http://localhost:3000")  # ilk URL (geriye uyumluluk)
 
 
+def _get_cookies_path() -> str | None:
+    """cookies.txt veya COOKIES_FILE yolunu döndür."""
+    p = os.getenv("COOKIES_FILE", "").strip()
+    if p and os.path.isfile(p):
+        return p
+    for base in (os.path.dirname(os.path.abspath(__file__)), os.getcwd()):
+        p = os.path.join(base, "cookies.txt")
+        if os.path.isfile(p):
+            return p
+    return None
+
+
 def _download_audio_via_ytdlp_subprocess(
     url: str, cookies_path: str | None, platform: str
 ) -> tuple[io.BytesIO, float, dict] | None:
@@ -274,13 +266,24 @@ def _download_audio_via_ytdlp_subprocess(
             pass
 
 
-def _download_audio_via_rapidapi_social(url: str, platform: str) -> tuple[io.BytesIO, float, dict] | None:
+def _rapidapi_hosts() -> list[str]:
+    """RAPIDAPI_HOSTS (virgülle ayrılmış) veya RAPIDAPI_YOUTUBE_HOST listesini döndür."""
+    hosts_str = os.getenv("RAPIDAPI_HOSTS", "").strip()
+    if hosts_str:
+        return [h.strip() for h in hosts_str.split(",") if h.strip()]
+    host = os.getenv("RAPIDAPI_YOUTUBE_HOST", "").strip()
+    return [host] if host else []
+
+
+def _download_audio_via_rapidapi_social(
+    url: str, platform: str, host: str | None = None
+) -> tuple[io.BytesIO, float, dict] | None:
     """
     RapidAPI Social Download All In One ile ses indir. YouTube, X, TikTok vb.
     POST /v1/social/autolink, {"url": "..."}
     """
     api_key = os.getenv("RAPIDAPI_KEY", "").strip()
-    host = os.getenv("RAPIDAPI_YOUTUBE_HOST", "").strip()
+    host = host or os.getenv("RAPIDAPI_YOUTUBE_HOST", "").strip()
     if not api_key or not host:
         return None
 
@@ -328,9 +331,14 @@ def _download_audio_via_rapidapi_social(url: str, platform: str) -> tuple[io.Byt
         return None
 
     # Ses dosyasını stream ile belleğe al (disk yok)
+    # googlevideo.com User-Agent gerektirir
+    download_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0",
+        "Referer": "https://www.youtube.com/",
+    }
     try:
         with httpx.Client(timeout=120.0, follow_redirects=True) as client:
-            with client.stream("GET", download_url) as stream:
+            with client.stream("GET", download_url, headers=download_headers) as stream:
                 if stream.status_code != 200:
                     print(f"[RapidAPI] Download error: {stream.status_code}")
                     return None
@@ -384,7 +392,7 @@ def _download_audio_via_rapidapi_social(url: str, platform: str) -> tuple[io.Byt
         "tags": "",
         "platform": platform,
     }
-    print(f"[RapidAPI] OK: {url[:60]}...")
+    print(f"[RapidAPI] OK ({host}): {url[:60]}...")
     return buffer, duration, meta
 
 
@@ -553,12 +561,17 @@ def _get_duration_from_buffer(buffer: io.BytesIO) -> float:
 def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
     platform = _detect_platform(url)
 
-    # RapidAPI Social Download All In One (YouTube, X, TikTok vb.) — zorunlu
-    if not (os.getenv("RAPIDAPI_KEY") and os.getenv("RAPIDAPI_YOUTUBE_HOST")):
-        raise RuntimeError("RAPIDAPI_KEY and RAPIDAPI_YOUTUBE_HOST required")
-    result = _download_audio_via_rapidapi_social(url, platform)
-    if result is not None:
-        return result
+    api_key = os.getenv("RAPIDAPI_KEY", "").strip()
+    hosts = _rapidapi_hosts()
+    if not api_key or not hosts:
+        raise RuntimeError("RAPIDAPI_KEY and RAPIDAPI_HOSTS (or RAPIDAPI_YOUTUBE_HOST) required")
+
+    for host in hosts:
+        result = _download_audio_via_rapidapi_social(url, platform, host)
+        if result is not None:
+            return result
+        print(f"[RapidAPI] {host} başarısız, sonraki deneniyor...")
+
     raise RuntimeError("Downloader Service Unavailable")
 
 
