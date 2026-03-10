@@ -196,6 +196,69 @@ def _invidious_urls() -> list[str]:
 INVIDIOUS_BASE = os.getenv("INVIDIOUS_URL", "http://localhost:3000")  # ilk URL (geriye uyumluluk)
 
 
+def _download_audio_via_ytdlp_subprocess(
+    url: str, cookies_path: str | None, platform: str
+) -> tuple[io.BytesIO, float, dict] | None:
+    """yt-dlp CLI ile ses indir (Python API başarısız olursa fallback)."""
+    import shutil as _shutil
+    ytdlp_cmd = _shutil.which("yt-dlp") or _shutil.which("yt_dlp")
+    if not ytdlp_cmd:
+        ytdlp_cmd = sys.executable
+        ytdlp_args = ["-m", "yt_dlp"]
+    else:
+        ytdlp_args = []
+    out_dir = tempfile.mkdtemp()
+    out_tpl = os.path.join(out_dir, "audio.%(ext)s")
+    cmd = [ytdlp_cmd] + ytdlp_args + [
+        "-x", "-f", "worst",
+        "-o", out_tpl,
+        "--no-playlist", "--quiet", "--no-warnings",
+        "--audio-format", "opus", "--audio-quality", "0",
+    ]
+    if cookies_path:
+        cmd.extend(["--cookiefile", cookies_path])
+    if platform == "youtube":
+        cmd.extend(["--extractor-args", "youtube:player_client=mweb,android,web"])
+    cmd.append(url)
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if proc.returncode != 0:
+            print(f"[yt-dlp subprocess] exit={proc.returncode} stderr: {proc.stderr[:400]}")
+            return None
+        files = [f for f in os.listdir(out_dir) if f.endswith((".opus", ".m4a", ".webm", ".mp3", ".ogg"))]
+        if not files:
+            return None
+        path = os.path.join(out_dir, files[0])
+        with open(path, "rb") as f:
+            data = f.read()
+        duration = _get_duration_from_buffer(io.BytesIO(data)) if data else 0
+        if duration <= 0 and len(data) > 1000:
+            duration = max(60.0, len(data) / 3000.0)
+        # opus değilse ffmpeg ile çevir
+        if not path.endswith(".opus") and not path.endswith(".ogg"):
+            proc2 = subprocess.run(
+                [FFMPEG, "-i", path, "-vn", "-acodec", "libopus", "-ar", str(SAMPLE_RATE), "-ac", "1",
+                 "-f", "ogg", "-loglevel", "error", "pipe:1"],
+                capture_output=True, timeout=120,
+            )
+            if proc2.returncode == 0:
+                data = proc2.stdout
+        buffer = io.BytesIO(data)
+        meta = {"title": "", "description": "", "channel": "", "categories": "", "tags": "", "platform": platform}
+        print("[yt-dlp subprocess] başarılı")
+        return buffer, duration, meta
+    except Exception as e:
+        print(f"[yt-dlp subprocess] error: {e}")
+        return None
+    finally:
+        try:
+            for f in os.listdir(out_dir):
+                os.unlink(os.path.join(out_dir, f))
+            os.rmdir(out_dir)
+        except OSError:
+            pass
+
+
 def _extract_youtube_video_id(url: str) -> str | None:
     """YouTube URL'den video_id çıkar. watch?v=, youtu.be/, shorts/ desteklenir."""
     if not url or ("youtube.com" not in url and "youtu.be" not in url):
@@ -417,8 +480,9 @@ def download_audio(url: str, user_cookies: str | None = None) -> tuple[io.BytesI
         print(f"[Cookies] Using: {'user-provided' if user_cookies else 'server'}")
 
     if platform == "youtube":
+        # mweb: datacenter IP'lerinde daha fazla format; android/web fallback
         ydl_opts["extractor_args"] = {
-            "youtube": {"player_client": ["web", "android", "ios"]}
+            "youtube": {"player_client": ["mweb", "android", "web", "ios"]}
         }
 
     if platform == "twitter":
@@ -435,19 +499,32 @@ def download_audio(url: str, user_cookies: str | None = None) -> tuple[io.BytesI
         ]
 
     last_err: Exception | None = None
+    info = None
     for fmt in _FORMAT_FALLBACKS:
         ydl_opts["format"] = fmt
         try:
             with yt_dlp.YoutubeDL(ydl_opts.copy()) as ydl:
                 info = ydl.extract_info(url, download=False)
+            print(f"[yt-dlp] format OK: {fmt[:50]}")
             break
         except Exception as e:
             err_str = str(e)
+            print(f"[yt-dlp] format FAIL: {fmt[:40]} -> {err_str[:120]}")
             if "format is not available" in err_str or "Requested format" in err_str:
                 last_err = e
                 continue
             raise
     else:
+        # Python API tüm formatlarda başarısız; subprocess fallback dene
+        print("[yt-dlp] Tüm formatlar başarısız, subprocess fallback deneniyor...")
+        result = _download_audio_via_ytdlp_subprocess(url, cookies_tmp_path, platform)
+        if cookies_tmp_path and os.path.isfile(cookies_tmp_path):
+            try:
+                os.unlink(cookies_tmp_path)
+            except OSError:
+                pass
+        if result is not None:
+            return result
         if last_err:
             raise last_err
         raise RuntimeError("No format available")
