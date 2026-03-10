@@ -162,6 +162,36 @@ def _detect_platform(url: str) -> str:
     return "youtube"
 
 
+def _is_broadcast_url(url: str) -> bool:
+    """X/Twitter broadcast veya event sayfası mı?"""
+    return "/i/broadcasts/" in url or "/i/events/" in url
+
+
+def _get_duration_from_buffer(buffer: io.BytesIO) -> float:
+    """ffprobe ile buffer'daki ses süresini al (duration=0 için fallback)."""
+    buffer.seek(0)
+    data = buffer.read()
+    buffer.seek(0)
+    proc = subprocess.run(
+        [
+            FFPROBE,
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            "-i", "pipe:0",
+        ],
+        input=data,
+        capture_output=True,
+        timeout=30,
+    )
+    if proc.returncode != 0 or not proc.stdout:
+        return 0.0
+    try:
+        return float(proc.stdout.decode().strip())
+    except (ValueError, TypeError):
+        return 0.0
+
+
 def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
     platform = _detect_platform(url)
 
@@ -183,7 +213,9 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
 
     if platform == "twitter":
         ydl_opts["format"] = "bestaudio/best"
-        ydl_opts["extractor_args"] = {"twitter": {"api": ["syndication"]}}
+        # Broadcast URL'leri syndication API ile sorun çıkarabilir; sadece normal tweet'lerde kullan
+        if not _is_broadcast_url(url):
+            ydl_opts["extractor_args"] = {"twitter": {"api": ["syndication"]}}
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -209,18 +241,30 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         "platform": platform,
     }
 
-    proc = subprocess.run(
-        [
-            FFMPEG, "-i", audio_url,
-            "-vn", "-acodec", "libopus", "-ar", str(SAMPLE_RATE), "-ac", "1",
-            "-f", "ogg", "-loglevel", "error", "pipe:1",
-        ],
-        capture_output=True,
-    )
+    # HLS (m3u8) ve broadcast stream'leri için protocol whitelist gerekli
+    ffmpeg_args = [FFMPEG]
+    if "m3u8" in audio_url.lower() or _is_broadcast_url(url):
+        ffmpeg_args.extend(["-protocol_whitelist", "file,http,https,tcp,tls,crypto"])
+    ffmpeg_args.extend([
+        "-i", audio_url,
+        "-vn", "-acodec", "libopus", "-ar", str(SAMPLE_RATE), "-ac", "1",
+        "-f", "ogg", "-loglevel", "error", "pipe:1",
+    ])
+
+    proc = subprocess.run(ffmpeg_args, capture_output=True, timeout=600)
     if proc.returncode != 0:
         raise RuntimeError(f"Audio download error: {proc.stderr.decode(errors='ignore')}")
 
-    return io.BytesIO(proc.stdout), duration, meta
+    buffer = io.BytesIO(proc.stdout)
+    # yt-dlp bazen broadcast için duration=0 döner; ffprobe ile gerçek süreyi al
+    if duration <= 0 and len(proc.stdout) > 0:
+        duration = _get_duration_from_buffer(buffer)
+        buffer.seek(0)
+        # ffprobe da 0 dönerse, opus ~3KB/s civarı olduğundan buffer boyutundan tahmin et
+        if duration <= 0 and len(proc.stdout) > 1000:
+            duration = max(60.0, len(proc.stdout) / 3000.0)
+
+    return buffer, duration, meta
 
 
 def extract_audio_chunk(
