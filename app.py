@@ -281,8 +281,10 @@ def _download_audio_via_rapidapi_ytapi(
     """yt-api.p.rapidapi.com: GET /dl?id=VIDEO_ID - stream URL döner."""
     video_id = _extract_youtube_video_id(url)
     if not video_id:
+        print("[RapidAPI yt-api] No video_id from URL")
         return None
     api_url = f"https://{host.rstrip('/')}/dl?id={video_id}"
+    print(f"[RapidAPI yt-api] Requesting {host}/dl?id={video_id[:8]}...")
     headers = {"X-RapidAPI-Key": api_key, "X-RapidAPI-Host": host}
     try:
         with httpx.Client(timeout=30.0) as client:
@@ -322,6 +324,7 @@ def _download_audio_via_rapidapi_ytapi(
         print(f"[RapidAPI yt-api] No stream URL. Keys: {list(api_data.keys())}")
         return None
 
+    print(f"[RapidAPI yt-api] Downloading from googlevideo... ({len(download_url)} chars)")
     download_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0",
         "Referer": "https://www.youtube.com/",
@@ -336,14 +339,15 @@ def _download_audio_via_rapidapi_ytapi(
                 for chunk in stream.iter_bytes(chunk_size=8192):
                     audio_buffer.write(chunk)
     except Exception as e:
-        print(f"[RapidAPI yt-api] Download error: {e}")
+        print(f"[RapidAPI yt-api] Download error: {type(e).__name__} {e}")
         return None
 
     audio_buffer.seek(0)
     raw_data = audio_buffer.read()
     audio_buffer.seek(0)
+    print(f"[RapidAPI yt-api] Downloaded {len(raw_data)} bytes")
     if len(raw_data) < 1000:
-        print("[RapidAPI yt-api] Data too small")
+        print("[RapidAPI yt-api] Data too small (googlevideo 403/redirect?)")
         return None
 
     proc = subprocess.run(
@@ -682,6 +686,14 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         if result is not None:
             return result
         print(f"[RapidAPI] {host} başarısız, sonraki deneniyor...")
+
+    # RapidAPI googlevideo sunucudan 403 verebilir; Invidious yedek (YouTube)
+    if platform == "youtube":
+        video_id = _extract_youtube_video_id(url)
+        if video_id:
+            result = _download_audio_via_invidious(video_id)
+            if result is not None:
+                return result
 
     raise RuntimeError("Downloader Service Unavailable")
 
