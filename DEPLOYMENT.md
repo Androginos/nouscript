@@ -149,6 +149,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/nouscript
 Environment="PATH=/opt/nouscript/venv/bin"
+Environment="COOKIES_FILE=/opt/nouscript/cookies.txt"
 ExecStart=/opt/nouscript/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=5

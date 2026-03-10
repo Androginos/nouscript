@@ -98,6 +98,17 @@ def _resolve_tools():
     FFPROBE = _find_binary("ffprobe")
     print(f"[OK] ffmpeg  : {FFMPEG}")
     print(f"[OK] ffprobe : {FFPROBE}")
+    # Cookie durumu (YouTube için)
+    for base in (os.path.dirname(os.path.abspath(__file__)), os.getcwd()):
+        p = os.path.join(base, "cookies.txt")
+        if os.path.isfile(p):
+            print(f"[OK] cookies  : {p}")
+            break
+    else:
+        if os.getenv("COOKIES_FILE"):
+            print(f"[WARN] cookies : COOKIES_FILE set but file not found")
+        else:
+            print("[INFO] cookies  : cookies.txt not found (YouTube may need it)")
 
 
 def strip_think_tags(text: str) -> str:
@@ -202,9 +213,31 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         "no_playlist": True,
     }
 
-    cookies_path = os.getenv("COOKIES_FILE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
-    if os.path.isfile(cookies_path):
-        ydl_opts["cookiefile"] = cookies_path
+    def _find_cookies() -> str | None:
+        if p := os.getenv("COOKIES_FILE"):
+            return p if os.path.isfile(p) else None
+        for base in (
+            os.path.dirname(os.path.abspath(__file__)),
+            os.getcwd(),
+        ):
+            p = os.path.join(base, "cookies.txt")
+            if os.path.isfile(p):
+                return p
+        return None
+
+    cookies_path = _find_cookies()
+    cookies_tmp_path: str | None = None
+    if cookies_path:
+        # Windows'ta oluşturulan dosyalar CRLF kullanır; Linux/sunucu LF bekler
+        with open(cookies_path, "r", encoding="utf-8", errors="ignore") as f:
+            cookie_content = f.read().replace("\r\n", "\n").replace("\r", "\n")
+        if cookie_content.strip():
+            tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8")
+            tmp.write(cookie_content)
+            tmp.close()
+            cookies_tmp_path = tmp.name
+            ydl_opts["cookiefile"] = cookies_tmp_path
+            print(f"[Cookies] Using: {cookies_path} -> {cookies_tmp_path}")
 
     if platform == "youtube":
         ydl_opts["extractor_args"] = {
@@ -217,54 +250,61 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         if not _is_broadcast_url(url):
             ydl_opts["extractor_args"] = {"twitter": {"api": ["syndication"]}}
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
 
-        formats = info.get("formats") or []
-        audio_url = info.get("url", "")
-        if not audio_url and formats:
-            for f in reversed(formats):
-                if f.get("acodec") and f["acodec"] != "none":
-                    audio_url = f["url"]
-                    break
-            if not audio_url:
-                audio_url = formats[-1].get("url", "")
+            formats = info.get("formats") or []
+            audio_url = info.get("url", "")
+            if not audio_url and formats:
+                for f in reversed(formats):
+                    if f.get("acodec") and f["acodec"] != "none":
+                        audio_url = f["url"]
+                        break
+                if not audio_url:
+                    audio_url = formats[-1].get("url", "")
 
-        duration = float(info.get("duration") or 0)
+            duration = float(info.get("duration") or 0)
 
-    meta = {
-        "title": info.get("title", "") or info.get("fulltitle", ""),
-        "description": (info.get("description") or "")[:500],
-        "channel": info.get("channel", "") or info.get("uploader", "") or info.get("uploader_id", ""),
-        "categories": ", ".join(info.get("categories") or []),
-        "tags": ", ".join((info.get("tags") or [])[:15]),
-        "platform": platform,
-    }
+        meta = {
+            "title": info.get("title", "") or info.get("fulltitle", ""),
+            "description": (info.get("description") or "")[:500],
+            "channel": info.get("channel", "") or info.get("uploader", "") or info.get("uploader_id", ""),
+            "categories": ", ".join(info.get("categories") or []),
+            "tags": ", ".join((info.get("tags") or [])[:15]),
+            "platform": platform,
+        }
 
-    # HLS (m3u8) ve broadcast stream'leri için protocol whitelist gerekli
-    ffmpeg_args = [FFMPEG]
-    if "m3u8" in audio_url.lower() or _is_broadcast_url(url):
-        ffmpeg_args.extend(["-protocol_whitelist", "file,http,https,tcp,tls,crypto"])
-    ffmpeg_args.extend([
-        "-i", audio_url,
-        "-vn", "-acodec", "libopus", "-ar", str(SAMPLE_RATE), "-ac", "1",
-        "-f", "ogg", "-loglevel", "error", "pipe:1",
-    ])
+        # HLS (m3u8) ve broadcast stream'leri için protocol whitelist gerekli
+        ffmpeg_args = [FFMPEG]
+        if "m3u8" in audio_url.lower() or _is_broadcast_url(url):
+            ffmpeg_args.extend(["-protocol_whitelist", "file,http,https,tcp,tls,crypto"])
+        ffmpeg_args.extend([
+            "-i", audio_url,
+            "-vn", "-acodec", "libopus", "-ar", str(SAMPLE_RATE), "-ac", "1",
+            "-f", "ogg", "-loglevel", "error", "pipe:1",
+        ])
 
-    proc = subprocess.run(ffmpeg_args, capture_output=True, timeout=600)
-    if proc.returncode != 0:
-        raise RuntimeError(f"Audio download error: {proc.stderr.decode(errors='ignore')}")
+        proc = subprocess.run(ffmpeg_args, capture_output=True, timeout=600)
+        if proc.returncode != 0:
+            raise RuntimeError(f"Audio download error: {proc.stderr.decode(errors='ignore')}")
 
-    buffer = io.BytesIO(proc.stdout)
-    # yt-dlp bazen broadcast için duration=0 döner; ffprobe ile gerçek süreyi al
-    if duration <= 0 and len(proc.stdout) > 0:
-        duration = _get_duration_from_buffer(buffer)
-        buffer.seek(0)
-        # ffprobe da 0 dönerse, opus ~3KB/s civarı olduğundan buffer boyutundan tahmin et
-        if duration <= 0 and len(proc.stdout) > 1000:
-            duration = max(60.0, len(proc.stdout) / 3000.0)
+        buffer = io.BytesIO(proc.stdout)
+        # yt-dlp bazen broadcast için duration=0 döner; ffprobe ile gerçek süreyi al
+        if duration <= 0 and len(proc.stdout) > 0:
+            duration = _get_duration_from_buffer(buffer)
+            buffer.seek(0)
+            # ffprobe da 0 dönerse, opus ~3KB/s civarı olduğundan buffer boyutundan tahmin et
+            if duration <= 0 and len(proc.stdout) > 1000:
+                duration = max(60.0, len(proc.stdout) / 3000.0)
 
-    return buffer, duration, meta
+        return buffer, duration, meta
+    finally:
+        if cookies_tmp_path and os.path.isfile(cookies_tmp_path):
+            try:
+                os.unlink(cookies_tmp_path)
+            except OSError:
+                pass
 
 
 def extract_audio_chunk(
@@ -660,7 +700,14 @@ async def worker():
                 })
 
         except Exception as exc:
-            await progress.put({"stage": "error", "message": f"Error: {exc}"})
+            msg = str(exc)
+            if "Sign in to confirm" in msg or ("cookies" in msg.lower() and "youtube" in msg.lower()):
+                cookies_path = os.getenv("COOKIES_FILE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+                if not os.path.isfile(cookies_path):
+                    msg += " | Çözüm: cookies.txt oluşturup /opt/nouscript/ klasörüne yükleyin."
+                else:
+                    msg += " | cookies.txt mevcut; cookies expire olmuş olabilir. Yeniden export edin."
+            await progress.put({"stage": "error", "message": f"Error: {msg}"})
         finally:
             if audio_buffer is not None:
                 audio_buffer.close()
