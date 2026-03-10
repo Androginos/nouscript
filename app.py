@@ -326,13 +326,15 @@ def _download_audio_via_rapidapi_ytapi(
 
     print(f"[RapidAPI yt-api] Downloading from googlevideo... ({len(download_url)} chars)")
     download_headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Referer": "https://www.youtube.com/",
+        "Origin": "https://www.youtube.com",
+        "Range": "bytes=0-",
     }
     try:
         with httpx.Client(timeout=120.0, follow_redirects=True) as client:
             with client.stream("GET", download_url, headers=download_headers) as stream:
-                if stream.status_code != 200:
+                if stream.status_code not in (200, 206):
                     print(f"[RapidAPI yt-api] Download {stream.status_code}")
                     return None
                 audio_buffer = io.BytesIO()
@@ -347,7 +349,11 @@ def _download_audio_via_rapidapi_ytapi(
     audio_buffer.seek(0)
     print(f"[RapidAPI yt-api] Downloaded {len(raw_data)} bytes")
     if len(raw_data) < 1000:
-        print("[RapidAPI yt-api] Data too small (googlevideo 403/redirect?)")
+        head = raw_data[:200].decode(errors="replace")
+        print(f"[RapidAPI yt-api] Data too small. First 100 chars: {repr(head[:100])}")
+        return None
+    if raw_data[:4] == b"<htm" or raw_data[:5] == b"<!DOC":
+        print("[RapidAPI yt-api] Got HTML instead of audio (403/blocked?)")
         return None
 
     proc = subprocess.run(
@@ -443,15 +449,17 @@ def _download_audio_via_rapidapi_social(
         return None
 
     # Ses dosyasını stream ile belleğe al (disk yok)
-    # googlevideo.com User-Agent gerektirir
+    # googlevideo.com: Chrome UA + Origin + Range (403 bypass denemesi)
     download_headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Referer": "https://www.youtube.com/",
+        "Origin": "https://www.youtube.com",
+        "Range": "bytes=0-",
     }
     try:
         with httpx.Client(timeout=120.0, follow_redirects=True) as client:
             with client.stream("GET", download_url, headers=download_headers) as stream:
-                if stream.status_code != 200:
+                if stream.status_code not in (200, 206):
                     print(f"[RapidAPI] Download error: {stream.status_code}")
                     return None
                 audio_buffer = io.BytesIO()
@@ -686,14 +694,6 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         if result is not None:
             return result
         print(f"[RapidAPI] {host} başarısız, sonraki deneniyor...")
-
-    # RapidAPI googlevideo sunucudan 403 verebilir; Invidious yedek (YouTube)
-    if platform == "youtube":
-        video_id = _extract_youtube_video_id(url)
-        if video_id:
-            result = _download_audio_via_invidious(video_id)
-            if result is not None:
-                return result
 
     raise RuntimeError("Downloader Service Unavailable")
 

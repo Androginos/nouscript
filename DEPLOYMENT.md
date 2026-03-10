@@ -269,57 +269,22 @@ Canlı sitede Turnstile kullanıyorsanız, Cloudflare panelinde domain'inizi ekl
 
 ---
 
-## YouTube "Sign in to confirm you're not a bot" Hatası
+## YouTube indirme: Sadece RapidAPI
 
-Bu hata yt-dlp'nin YouTube tarafından engellenmesinden kaynaklanır. Çözümler:
+İndirme **sadece RapidAPI (yt-api)** ile yapılır. Invidious veya yt-dlp yedek değildir.
 
-### Önerilen: Invidious (cookie gerektirmez)
+### .env (zorunlu)
 
-Sunucuda Invidious kurarak YouTube videolarını cookie olmadan işleyebilirsiniz. Detaylı kurulum: **[INVIDIOUS_SETUP.md](INVIDIOUS_SETUP.md)**
-
-Kısa özet:
-```bash
-mkdir -p /opt/invidious && cd /opt/invidious
-# docker-compose.yml oluştur (INVIDIOUS_SETUP.md'deki içerik)
-docker-compose up -d
-pip install httpx  # nouscript venv içinde
-systemctl restart nouscript
+```
+RAPIDAPI_KEY=rapidapi_keyiniz
+RAPIDAPI_HOSTS=yt-api.p.rapidapi.com
 ```
 
----
+### "Downloader Service Unavailable" hatası
 
-### Alternatif: yt-dlp + cookies
-
-1. **yt-dlp'yi güncelle** (sunucuda):
-   ```bash
-   cd /opt/nouscript
-   source venv/bin/activate
-   pip install -U yt-dlp
-   systemctl restart nouscript
-   ```
-
-2. **Kod güncellemesi** — `player_client` extractor args eklendi. `git pull` ile alıp `systemctl restart nouscript` yapın.
-
-3. **Cookies kullan** — YouTube bot engelini aşmak için cookies gerekebilir:
-
-   **a) Eklenti OLMADAN (önerilen):**
-   - Tarayıcıda youtube.com'a giriş yap
-   - Tarayıcıyı tamamen kapat
-   - Bilgisayarında: `pip install browser_cookie3`
-   - Proje klasöründe: `python export_cookies.py` (veya `python export_cookies.py firefox`)
-   - `cookies.txt` oluşur — eklenti gerekmez
-
-   **b) Eklenti ile (alternatif):**
-   - Chrome: "Get cookies.txt LOCALLY" eklentisi → youtube.com'da Export
-
-   **c) Sunucuya yükle:**
-   - Hostinger panel → Terminal veya Dosya Yöneticisi
-   - `/opt/nouscript/` klasörüne `cookies.txt` dosyasını yükle
-   - Veya SCP ile: `scp cookies.txt root@SUNUCU_IP:/opt/nouscript/`
-
-   **c) Servisi yeniden başlat:**
-   ```bash
-   systemctl restart nouscript
-   ```
-
-   Uygulama `cookies.txt` dosyasını otomatik kullanır. **Not:** Cookies 1–2 haftada expire olabilir, gerekirse yeniden export edin.
+1. **Sunucu .env kontrolü** — `RAPIDAPI_HOSTS=yt-api.p.rapidapi.com` olmalı (social-download-all-in-one değil).
+2. **Logları inceleyin** — `journalctl -u nouscript -f` ile hangi adımda hata verdiğini görün:
+   - `[RapidAPI yt-api] Download 403` — googlevideo sunucu IP'sini engelliyor
+   - `[RapidAPI yt-api] Got HTML instead of audio` — 403/engellenme
+   - `[RapidAPI yt-api] FFmpeg: Invalid data` — indirilen veri geçersiz
+3. **RapidAPI aboneliği** — yt-api için RapidAPI'de abonelik gerekli.
