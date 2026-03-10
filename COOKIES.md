@@ -4,7 +4,25 @@
 
 ---
 
-## Yöntem 1: yt-dlp ile (En Kolay)
+## Kullanıcılar için (nouscript.com)
+
+### Yöntem A: Eklenti (Otomatik)
+1. [NouScript eklentisini](https://github.com/Androginos/nouscript/tree/main/extension) yükleyin (Chrome)
+2. Sitede "YouTube için cookie izni ver" butonuna tıklayın
+3. İzin verildiğinde videoları işleyebilirsiniz
+
+### Yöntem B: Manuel yapıştır (Eklenti istemeyenler)
+1. Tarayıcıda YouTube'a giriş yapın
+2. [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) eklentisini yükleyin
+3. YouTube açıkken eklentiyle cookies export edin
+4. nouscript.com'da "Veya cookies.txt içeriğini yapıştır" bölümünü açın
+5. Export edilen içeriği yapıştırıp "Kullan" deyin
+
+---
+
+## Site yöneticisi için (sunucu cookies.txt)
+
+### Yöntem 1: yt-dlp ile (En Kolay)
 
 yt-dlp zaten kurulu. Tarayıcıda **youtube.com'a giriş yapın**, sonra:
 
