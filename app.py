@@ -393,6 +393,101 @@ def _download_audio_via_rapidapi_ytapi(
     return buffer, duration, meta
 
 
+def _download_audio_via_rapidapi_ytmp3(
+    url: str, host: str, api_key: str
+) -> tuple[io.BytesIO, float, dict] | None:
+    """
+    youtube-mp3-audio-video-downloader: GET /get_m4a_download_link/{videoId}
+    Kendi CDN'inden döner - googlevideo 403 yok. M4A 20-30 sn'de hazır.
+    """
+    video_id = _extract_youtube_video_id(url)
+    if not video_id:
+        return None
+    api_url = f"https://{host.rstrip('/')}/get_m4a_download_link/{video_id}"
+    headers = {"X-RapidAPI-Key": api_key, "X-RapidAPI-Host": host}
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            r = client.get(api_url, headers=headers)
+            if r.status_code != 200:
+                print(f"[RapidAPI yt-mp3] API {r.status_code} {r.text[:100]}")
+                return None
+            api_data = r.json()
+    except Exception as e:
+        print(f"[RapidAPI yt-mp3] {e}")
+        return None
+
+    download_url = api_data.get("file")
+    if not download_url or not str(download_url).startswith(("http://", "https://")):
+        print(f"[RapidAPI yt-mp3] No file URL. Keys: {list(api_data.keys())}")
+        return None
+
+    # Dosya 20-30 sn'de hazır olabilir; 404 ise kısa bekle ve tekrar dene
+    print(f"[RapidAPI yt-mp3] Downloading... (API CDN)")
+    headers_dl = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"}
+    raw_data = None
+    for attempt in range(7):
+        try:
+            with httpx.Client(timeout=90.0, follow_redirects=True) as client:
+                r = client.get(download_url, headers=headers_dl)
+                if r.status_code == 200:
+                    raw_data = r.content
+                    break
+                if r.status_code == 404 and attempt < 6:
+                    time.sleep(5)
+                    continue
+                print(f"[RapidAPI yt-mp3] Download {r.status_code} (attempt {attempt + 1})")
+                return None
+        except Exception as e:
+            print(f"[RapidAPI yt-mp3] Download error: {e}")
+            return None
+
+    if not raw_data or len(raw_data) < 1000:
+        print(f"[RapidAPI yt-mp3] Invalid data ({len(raw_data) if raw_data else 0} bytes)")
+        return None
+
+    proc = subprocess.run(
+        [
+            FFMPEG, "-i", "pipe:0",
+            "-vn", "-acodec", "libopus", "-ar", str(SAMPLE_RATE), "-ac", "1",
+            "-f", "ogg", "-loglevel", "error", "pipe:1",
+        ],
+        input=raw_data,
+        capture_output=True,
+        timeout=120,
+    )
+    if proc.returncode != 0:
+        print(f"[RapidAPI yt-mp3] FFmpeg: {proc.stderr.decode(errors='ignore')[:100]}")
+        return None
+
+    buffer = io.BytesIO(proc.stdout)
+    duration = _get_duration_from_buffer(buffer)
+    buffer.seek(0)
+    if duration <= 0 and len(proc.stdout) > 1000:
+        duration = max(60.0, len(proc.stdout) / 3000.0)
+
+    # Opsiyonel: /get-video-info/{videoId} ile title al
+    title = ""
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            ri = client.get(f"https://{host}/get-video-info/{video_id}", headers=headers)
+            if ri.status_code == 200:
+                info = ri.json()
+                title = str(info.get("title", ""))[:500]
+    except Exception:
+        pass
+
+    meta = {
+        "title": title,
+        "description": "",
+        "channel": "",
+        "categories": "",
+        "tags": "",
+        "platform": "youtube",
+    }
+    print(f"[RapidAPI yt-mp3] OK: {url[:50]}...")
+    return buffer, duration, meta
+
+
 def _download_audio_via_rapidapi_ytvideodl(
     url: str, host: str, api_key: str
 ) -> tuple[io.BytesIO, float, dict] | None:
@@ -790,7 +885,9 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         raise RuntimeError("RAPIDAPI_KEY and RAPIDAPI_HOSTS (or RAPIDAPI_YOUTUBE_HOST) required")
 
     for host in hosts:
-        if "yt-api" in host.lower():
+        if "youtube-mp3-audio-video-downloader" in host.lower():
+            result = _download_audio_via_rapidapi_ytmp3(url, host, api_key)
+        elif "yt-api" in host.lower():
             result = _download_audio_via_rapidapi_ytapi(url, host, api_key)
         elif "youtube-video-download" in host.lower():
             result = _download_audio_via_rapidapi_ytvideodl(url, host, api_key)
