@@ -371,7 +371,7 @@ def download_audio(url: str, user_cookies: str | None = None) -> tuple[io.BytesI
             # Invidious başarısız, yt-dlp fallback
 
     ydl_opts = {
-        "format": "bestaudio/best",
+        "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best/worst",
         "quiet": True,
         "no_warnings": True,
         "no_playlist": True,
@@ -416,7 +416,7 @@ def download_audio(url: str, user_cookies: str | None = None) -> tuple[io.BytesI
         }
 
     if platform == "twitter":
-        ydl_opts["format"] = "bestaudio/best"
+        ydl_opts["format"] = "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best/worst"
         # Broadcast URL'leri syndication API ile sorun çıkarabilir; sadece normal tweet'lerde kullan
         if not _is_broadcast_url(url):
             ydl_opts["extractor_args"] = {"twitter": {"api": ["syndication"]}}
