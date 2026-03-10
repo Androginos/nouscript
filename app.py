@@ -313,16 +313,18 @@ def _download_audio_via_rapidapi_social(url: str, platform: str) -> tuple[io.Byt
         or api_data.get("download_link")
     )
     if not download_url:
-        data = api_data.get("data") or api_data.get("result") or api_data.get("media")
-        if isinstance(data, list) and data and isinstance(data[0], dict):
-            data = data[0]
-        if isinstance(data, dict):
-            download_url = data.get("url") or data.get("link") or data.get("downloadUrl")
+        medias = api_data.get("medias")
+        if isinstance(medias, list) and medias:
+            m = medias[0] if isinstance(medias[0], dict) else {}
+            download_url = m.get("url") or m.get("link")
+        if not download_url:
+            data = api_data.get("data") or api_data.get("result")
+            if isinstance(data, list) and data and isinstance(data[0], dict):
+                data = data[0]
+            if isinstance(data, dict):
+                download_url = data.get("url") or data.get("link") or data.get("downloadUrl")
     if not download_url or not str(download_url).startswith(("http://", "https://")):
-        print(f"[RapidAPI] No download link in response: {list(api_data.keys())[:10]}")
-        return None
-    if not download_url or not str(download_url).startswith(("http://", "https://")):
-        print(f"[RapidAPI] No download link in response: {list(api_data.keys())[:8]}")
+        print(f"[RapidAPI] No download link. Keys: {list(api_data.keys())}")
         return None
 
     # Ses dosyasını stream ile belleğe al (disk yok)
@@ -377,7 +379,7 @@ def _download_audio_via_rapidapi_social(url: str, platform: str) -> tuple[io.Byt
     meta = {
         "title": title,
         "description": str(api_data.get("description", "") or "")[:500],
-        "channel": str(api_data.get("channel", "") or api_data.get("author", "") or ""),
+        "channel": str(api_data.get("channel", "") or api_data.get("author", "") or api_data.get("uploader", "") or ""),
         "categories": "",
         "tags": "",
         "platform": platform,
