@@ -6,9 +6,9 @@
 
 ## Kullanıcılar için (nouscript.com)
 
-1. [NouScript eklentisini](https://github.com/Androginos/nouscript/tree/main/extension) yükleyin (Chrome)
-2. Sitede "YouTube için cookie izni ver" butonuna tıklayın
-3. İzin verildiğinde videoları işleyebilirsiniz
+1. [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) eklentisini yükleyin
+2. YouTube'a giriş yapın, eklentiyle cookies export edin
+3. nouscript.com'da "cookies.txt içeriğini yapıştır" bölümünü açıp yapıştırın, "Kullan" deyin
 
 ---
 
