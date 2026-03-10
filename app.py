@@ -253,7 +253,7 @@ def _download_audio_via_invidious(video_id: str) -> tuple[io.BytesIO, float, dic
         if isinstance(f, dict) and (f.get("type") or "").startswith("audio/")
     ]
     if not audio_formats:
-        print("[Invidious] No audio format found")
+        print(f"[Invidious] {base_used} No audio format found (formats: {len(formats)})")
         return None
 
     # En yüksek bitrate'li ses formatını seç (bitrate string veya int olabilir)
@@ -267,7 +267,7 @@ def _download_audio_via_invidious(video_id: str) -> tuple[io.BytesIO, float, dic
     best = max(audio_formats, key=_bitrate_val)
     audio_url = best.get("url")
     if not audio_url:
-        print("[Invidious] No URL in audio format")
+        print(f"[Invidious] {base_used} No URL in audio format")
         return None
     if not audio_url.startswith(("http://", "https://")):
         audio_url = (base_used.rstrip("/") + "/" + audio_url.lstrip("/"))
@@ -277,11 +277,11 @@ def _download_audio_via_invidious(video_id: str) -> tuple[io.BytesIO, float, dic
         with httpx.Client(timeout=120.0, follow_redirects=True) as client:
             r = client.get(audio_url)
             if r.status_code != 200:
-                print(f"[Invidious] Stream error: {r.status_code}")
+                print(f"[Invidious] {base_used} Stream error: {r.status_code}")
                 return None
             raw_data = r.content
     except Exception as e:
-        print(f"[Invidious] Stream Error: {e}")
+        print(f"[Invidious] {base_used} Stream Error: {e}")
         return None
 
     if not raw_data:
@@ -318,7 +318,7 @@ def _download_audio_via_invidious(video_id: str) -> tuple[io.BytesIO, float, dic
         "tags": ", ".join((data.get("keywords") or [])[:15]) if isinstance(data.get("keywords"), list) else "",
         "platform": "youtube",
     }
-    print(f"[Invidious] OK: {video_id}")
+    print(f"[Invidious] OK: {video_id} via {base_used}")
     return buffer, duration, meta
 
 
