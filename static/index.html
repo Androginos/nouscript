@@ -59,19 +59,6 @@
     .btn-outline{padding:10px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:.85rem;cursor:pointer;transition:all .2s}
     .btn-outline:hover{background:var(--surface-hover);color:var(--text)}
 
-    .cookie-section{margin-top:12px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
-    .btn-cookie-allow{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;padding:12px 16px;border:1px dashed var(--border);border-radius:8px;background:var(--bg);color:var(--text-muted);font-size:.9rem;cursor:pointer;transition:all .2s}
-    .btn-cookie-allow:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
-    .btn-cookie-allow.granted{border-style:solid;border-color:var(--green);color:var(--green);cursor:default}
-    .btn-cookie-allow small{font-size:.72rem;opacity:.8}
-    .cookie-install-hint{font-size:.78rem;color:var(--text-muted);margin-top:10px}
-    .cookie-install-hint a{color:var(--accent);text-decoration:none}
-    .cookie-install-hint a:hover{text-decoration:underline}
-    .cookie-paste-wrap{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
-    .cookie-paste-wrap summary{font-size:.85rem;color:var(--text-muted);cursor:pointer}
-    .cookie-paste-wrap summary:hover{color:var(--accent)}
-    .cookie-paste-wrap textarea{width:100%;min-height:60px;margin-top:8px;padding:10px;font-family:monospace;font-size:.75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);resize:vertical}
-    .cookie-paste-wrap .btn-paste{font-size:.8rem;margin-top:6px;padding:6px 12px}
 
     /* Pipeline */
     .pipeline{display:none;flex-direction:column;gap:10px}
@@ -118,8 +105,6 @@
 
     .error-card{display:none;background:rgba(255,68,68,.08);border:1px solid var(--accent);border-radius:var(--radius);padding:18px 24px;color:var(--accent);font-size:.9rem}
     .error-card.visible{display:block}
-    .error-card .cookie-error-link{display:inline-block;margin-top:10px;color:var(--accent);font-weight:600;text-decoration:none}
-    .error-card .cookie-error-link:hover{text-decoration:underline}
     .turnstile-fixed{position:fixed;bottom:16px;right:16px;z-index:100}
 
     .history-section{margin-top:24px}
@@ -285,20 +270,6 @@
       <input id="urlInput" type="text" placeholder="Paste a YouTube or X (Twitter) video link..." required />
       <button class="btn" type="submit" id="submitBtn">Process</button>
     </form>
-    <div class="cookie-section" id="cookieSection">
-      <button type="button" class="btn-cookie-allow" id="cookieAllowBtn">
-        <span>YouTube için cookie izni ver</span>
-        <small>Eklenti ile otomatik alınır</small>
-      </button>
-      <p class="cookie-install-hint" id="cookieInstallHint">
-        <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener" id="cookieInstallLink">Get cookies.txt LOCALLY</a> eklentisini yükle — YouTube'a giriş yapıp export edin, aşağıya yapıştırın
-      </p>
-      <details class="cookie-paste-wrap">
-        <summary>cookies.txt içeriğini yapıştır</summary>
-        <textarea id="cookiePasteArea" placeholder="# Netscape HTTP Cookie File..."></textarea>
-        <button type="button" class="btn-outline btn-paste" id="cookiePasteBtn">Kullan</button>
-      </details>
-    </div>
     <div id="turnstileWidget" class="turnstile-fixed"></div>
   </div>
 
@@ -404,10 +375,6 @@
 const form        = document.getElementById("form");
 const urlInput    = document.getElementById("urlInput");
 const submitBtn   = document.getElementById("submitBtn");
-let userCookies="";
-const cookieAllowBtn=document.getElementById("cookieAllowBtn");
-const cookieInstallHint=document.getElementById("cookieInstallHint");
-const cookieInstallLink=document.getElementById("cookieInstallLink");
 const sourceLangSelect = document.getElementById("sourceLangSelect");
 const langSelect  = document.getElementById("langSelect");
 const modeToggle  = document.getElementById("modeToggle");
@@ -431,38 +398,6 @@ function renderTurnstile(){
   });
 }
 renderTurnstile();
-
-cookieAllowBtn?.addEventListener("click",()=>{
-  const listener=(e)=>{
-    if(e.data?.type!=="NOUSCRIPT_COOKIES_RESPONSE")return;
-    window.removeEventListener("message",listener);
-    if(e.data.cookies&&e.data.cookies.includes(".youtube.com")){
-      userCookies=e.data.cookies;
-      cookieAllowBtn.classList.add("granted");
-      cookieAllowBtn.querySelector("span").textContent="Cookie izni verildi";
-      cookieInstallHint.style.display="none";
-    }else{
-      cookieInstallHint.style.display="";
-    }
-  };
-  window.addEventListener("message",listener);
-  window.postMessage({type:"NOUSCRIPT_REQUEST_COOKIES"},"*");
-  setTimeout(()=>{window.removeEventListener("message",listener);cookieInstallHint.style.display=""},3000);
-});
-
-document.getElementById("cookiePasteBtn")?.addEventListener("click",()=>{
-  const txt=document.getElementById("cookiePasteArea")?.value?.trim()||"";
-  if(!txt){alert("Lütfen cookies.txt içeriğini yapıştırın.");return;}
-  if(!txt.includes(".youtube.com")){alert("Geçerli YouTube cookies bulunamadı. Export ederken youtube.com açık olsun.");return;}
-  userCookies=txt;
-  if(cookieAllowBtn){
-    cookieAllowBtn.classList.add("granted");
-    const sp=cookieAllowBtn.querySelector("span");
-    if(sp)sp.textContent="Cookie izni verildi";
-  }
-  cookieInstallHint.style.display="none";
-});
-
 
 async function refreshRateCount(){
   try{
@@ -652,15 +587,7 @@ form.addEventListener("submit",async(e)=>{
   const source_lang=sourceLangSelect.value;
 
   try{
-    let cookieId="";
-    const isYoutube=/youtube\.com|youtu\.be/i.test(url);
-    const cookies=userCookies||"";
-    if(isYoutube&&cookies){
-      const reg=await fetch("/api/register-cookies",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cookies})});
-      if(reg.ok){const r=await reg.json();cookieId=r.cookie_id||"";}
-    }
     const params=new URLSearchParams({url,mode,lang,source_lang,cf_token:cfToken||""});
-    if(cookieId)params.set("cookie_id",cookieId);
     const sse=new EventSource("/api/process?"+params);
 
     sse.onmessage=(event)=>{
@@ -716,14 +643,7 @@ form.addEventListener("submit",async(e)=>{
 
       if(stage==="error"){
         if(currentStage){const el=document.getElementById("step-"+currentStage);if(el){el.classList.remove("active");el.classList.add("error")}}
-        const msg=data.message||"";
-        const isCookieError=msg.includes("Sign in")||msg.toLowerCase().includes("cookie");
-        if(isCookieError){
-          errorCard.innerHTML=msg+"<br><a href=\"https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc\" target=\"_blank\" rel=\"noopener\" class=\"cookie-error-link\">→ Get cookies.txt LOCALLY eklentisini yükle</a>";
-          document.getElementById("cookieSection")?.scrollIntoView({behavior:"smooth",block:"center"});
-        }else{
-          errorCard.textContent=msg;
-        }
+        errorCard.textContent=data.message||"";
         errorCard.classList.add("visible");
         finish(sse);
       }

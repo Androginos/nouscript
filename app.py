@@ -5,7 +5,6 @@ import json
 import math
 import os
 import re
-import secrets
 import shutil
 import subprocess
 import sys
@@ -33,8 +32,9 @@ from openai import OpenAI
 
 RATE_LIMIT_MAX = 5
 RATE_LIMIT_MAX_UNVERIFIED = 3
+RATE_LIMIT_MAX_RAPIDAPI = 100  # RapidAPI kullanıcıları için
 RATE_LIMIT_WINDOW = 3600  # 1 hour
-rate_limit_store: dict[str, list[float]] = {}  # ip -> [timestamps]
+rate_limit_store: dict[str, list[float]] = {}  # ip/key -> [timestamps]
 
 CHUNK_DURATION = 300
 SAMPLE_RATE = 16000
@@ -61,10 +61,6 @@ NOUS_REASONING_PREAMBLE = (
 
 whisper_model = None
 processing_queue: asyncio.Queue = asyncio.Queue(maxsize=1)
-
-# Kullanıcı tarafından sağlanan YouTube cookie'leri (cookie_id -> (content, timestamp))
-_user_cookies_store: dict[str, tuple[str, float]] = {}
-_USER_COOKIES_TTL = 600  # 10 dakika
 
 FFMPEG: str = ""
 FFPROBE: str = ""
@@ -178,6 +174,25 @@ def _consume_request(ip: str, limit: int = RATE_LIMIT_MAX) -> bool:
     return True
 
 
+def _is_rapidapi_request(request: Request) -> bool:
+    """RapidAPI isteği mi? x-rapidapi-key header + optional proxy secret."""
+    key = request.headers.get("x-rapidapi-key", "").strip()
+    if not key:
+        return False
+    secret = os.getenv("RAPIDAPI_PROXY_SECRET", "").strip()
+    if secret:
+        return request.headers.get("x-rapidapi-proxy-secret", "") == secret
+    return True
+
+
+def _get_rate_limit_key(request: Request) -> tuple[str, int]:
+    """(rate_limit_key, limit) döner. RapidAPI ise key ile, değilse IP ile."""
+    if _is_rapidapi_request(request):
+        key = request.headers.get("x-rapidapi-key", "").strip()
+        return f"rapidapi:{key}", RATE_LIMIT_MAX_RAPIDAPI
+    return request.client.host, RATE_LIMIT_MAX
+
+
 def _nous_client() -> OpenAI:
     return OpenAI(
         base_url="https://inference-api.nousresearch.com/v1",
@@ -257,6 +272,118 @@ def _download_audio_via_ytdlp_subprocess(
             os.rmdir(out_dir)
         except OSError:
             pass
+
+
+def _download_audio_via_rapidapi_social(url: str, platform: str) -> tuple[io.BytesIO, float, dict] | None:
+    """
+    RapidAPI Social Download All In One ile ses indir. YouTube, X, TikTok vb.
+    POST /v1/social/autolink, {"url": "..."}
+    """
+    api_key = os.getenv("RAPIDAPI_KEY", "").strip()
+    host = os.getenv("RAPIDAPI_YOUTUBE_HOST", "").strip()
+    if not api_key or not host:
+        return None
+
+    api_url = f"https://{host.rstrip('/')}/v1/social/autolink"
+    headers = {
+        "X-RapidAPI-Key": api_key,
+        "X-RapidAPI-Host": host,
+        "Content-Type": "application/json",
+    }
+    body = {"url": url}
+
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            r = client.post(api_url, headers=headers, json=body)
+            if r.status_code != 200:
+                print(f"[RapidAPI] API error: {r.status_code} {r.text[:200]}")
+                return None
+            api_data = r.json()
+    except httpx.TimeoutException:
+        print("[RapidAPI] API timeout")
+        return None
+    except Exception as e:
+        print(f"[RapidAPI] API error: {e}")
+        return None
+
+    download_url = (
+        api_data.get("link")
+        or api_data.get("downloadUrl")
+        or api_data.get("url")
+        or api_data.get("download_link")
+    )
+    if not download_url:
+        data = api_data.get("data") or api_data.get("result") or api_data.get("media")
+        if isinstance(data, list) and data and isinstance(data[0], dict):
+            data = data[0]
+        if isinstance(data, dict):
+            download_url = data.get("url") or data.get("link") or data.get("downloadUrl")
+    if not download_url or not str(download_url).startswith(("http://", "https://")):
+        print(f"[RapidAPI] No download link in response: {list(api_data.keys())[:10]}")
+        return None
+    if not download_url or not str(download_url).startswith(("http://", "https://")):
+        print(f"[RapidAPI] No download link in response: {list(api_data.keys())[:8]}")
+        return None
+
+    # Ses dosyasını stream ile belleğe al (disk yok)
+    try:
+        with httpx.Client(timeout=120.0, follow_redirects=True) as client:
+            with client.stream("GET", download_url) as stream:
+                if stream.status_code != 200:
+                    print(f"[RapidAPI] Download error: {stream.status_code}")
+                    return None
+                audio_buffer = io.BytesIO()
+                for chunk in stream.iter_bytes(chunk_size=8192):
+                    audio_buffer.write(chunk)
+    except httpx.TimeoutException:
+        print("[RapidAPI] Download timeout")
+        return None
+    except Exception as e:
+        print(f"[RapidAPI] Download error: {e}")
+        return None
+
+    audio_buffer.seek(0)
+    raw_data = audio_buffer.read()
+    audio_buffer.seek(0)
+    if len(raw_data) < 1000:
+        print("[RapidAPI] Downloaded data too small")
+        return None
+
+    # ffmpeg ile opus 16kHz'e dönüştür (pipe, disk yok)
+    proc = subprocess.run(
+        [
+            FFMPEG, "-i", "pipe:0",
+            "-vn", "-acodec", "libopus", "-ar", str(SAMPLE_RATE), "-ac", "1",
+            "-f", "ogg", "-loglevel", "error", "pipe:1",
+        ],
+        input=raw_data,
+        capture_output=True,
+        timeout=120,
+    )
+    if proc.returncode != 0:
+        print(f"[RapidAPI] FFmpeg error: {proc.stderr.decode(errors='ignore')[:200]}")
+        return None
+
+    buffer = io.BytesIO(proc.stdout)
+    duration = float(api_data.get("duration") or api_data.get("lengthSeconds") or 0)
+    if duration <= 0 and len(proc.stdout) > 0:
+        duration = _get_duration_from_buffer(buffer)
+        buffer.seek(0)
+    if duration <= 0 and len(proc.stdout) > 1000:
+        duration = max(60.0, len(proc.stdout) / 3000.0)
+
+    data_obj = api_data.get("data")
+    title = str(api_data.get("title") or (data_obj.get("title") if isinstance(data_obj, dict) else "") or "")
+    meta = {
+        "title": title,
+        "description": str(api_data.get("description", "") or "")[:500],
+        "channel": str(api_data.get("channel", "") or api_data.get("author", "") or ""),
+        "categories": "",
+        "tags": "",
+        "platform": platform,
+    }
+    print(f"[RapidAPI] OK: {url[:60]}...")
+    return buffer, duration, meta
 
 
 def _extract_youtube_video_id(url: str) -> str | None:
@@ -421,179 +548,16 @@ def _get_duration_from_buffer(buffer: io.BytesIO) -> float:
         return 0.0
 
 
-def download_audio(url: str, user_cookies: str | None = None) -> tuple[io.BytesIO, float, dict]:
+def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
     platform = _detect_platform(url)
 
-    # YouTube: Önce Invidious dene (cookie gerektirmez)
-    if platform == "youtube":
-        video_id = _extract_youtube_video_id(url)
-        if video_id:
-            result = _download_audio_via_invidious(video_id)
-            if result is not None:
-                return result
-            # Invidious başarısız, yt-dlp fallback
-
-    # Format fallback: bazı videolarda bestaudio/best yok; sırayla dene
-    _FORMAT_FALLBACKS = [
-        "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
-        "bestaudio/best",
-        "best",
-        "worst",
-    ]
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "no_playlist": True,
-    }
-
-    cookies_tmp_path: str | None = None
-    cookie_content: str | None = None
-
-    if user_cookies and user_cookies.strip():
-        # Kullanıcı kendi cookie'lerini sağladı (öncelikli)
-        cookie_content = user_cookies.replace("\r\n", "\n").replace("\r", "\n").strip()
-    if not cookie_content:
-        # Sunucu cookie dosyası (fallback)
-        def _find_cookies() -> str | None:
-            if p := os.getenv("COOKIES_FILE"):
-                return p if os.path.isfile(p) else None
-            for base in (
-                os.path.dirname(os.path.abspath(__file__)),
-                os.getcwd(),
-            ):
-                p = os.path.join(base, "cookies.txt")
-                if os.path.isfile(p):
-                    return p
-            return None
-
-        cookies_path = _find_cookies()
-        if cookies_path:
-            with open(cookies_path, "r", encoding="utf-8", errors="ignore") as f:
-                cookie_content = f.read().replace("\r\n", "\n").replace("\r", "\n").strip()
-
-    if cookie_content:
-        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8")
-        tmp.write(cookie_content)
-        tmp.close()
-        cookies_tmp_path = tmp.name
-        ydl_opts["cookiefile"] = cookies_tmp_path
-        print(f"[Cookies] Using: {'user-provided' if user_cookies else 'server'}")
-
-    if platform == "youtube":
-        # mweb: datacenter IP'lerinde daha fazla format; android/web fallback
-        ydl_opts["extractor_args"] = {
-            "youtube": {"player_client": ["mweb", "android", "web", "ios"]}
-        }
-
-    if platform == "twitter":
-        _FORMAT_FALLBACKS = ["bestaudio/best", "best", "worst"]
-        # Broadcast URL'leri syndication API ile sorun çıkarabilir; sadece normal tweet'lerde kullan
-        if not _is_broadcast_url(url):
-            ydl_opts["extractor_args"] = {"twitter": {"api": ["syndication"]}}
-    else:
-        _FORMAT_FALLBACKS = [
-            "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
-            "bestaudio/best",
-            "best",
-            "worst",
-        ]
-
-    last_err: Exception | None = None
-    info = None
-    for fmt in _FORMAT_FALLBACKS:
-        ydl_opts["format"] = fmt
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts.copy()) as ydl:
-                info = ydl.extract_info(url, download=False)
-            print(f"[yt-dlp] format OK: {fmt[:50]}")
-            break
-        except Exception as e:
-            err_str = str(e)
-            print(f"[yt-dlp] format FAIL: {fmt[:40]} -> {err_str[:120]}")
-            if "format is not available" in err_str or "Requested format" in err_str:
-                last_err = e
-                continue
-            raise
-    else:
-        # Python API tüm formatlarda başarısız; subprocess fallback dene
-        print("[yt-dlp] Tüm formatlar başarısız, subprocess fallback deneniyor...")
-        result = _download_audio_via_ytdlp_subprocess(url, cookies_tmp_path, platform)
-        if cookies_tmp_path and os.path.isfile(cookies_tmp_path):
-            try:
-                os.unlink(cookies_tmp_path)
-            except OSError:
-                pass
-        if result is not None:
-            return result
-        if last_err:
-            raise last_err
-        raise RuntimeError("No format available")
-
-    try:
-        formats = info.get("formats") or []
-        audio_url = info.get("url", "")
-
-        # Merge format (bv+ba): ses URL'sini requested_formats'tan al
-        if not audio_url and info.get("requested_formats"):
-            for rf in info["requested_formats"]:
-                if rf.get("acodec") and rf["acodec"] != "none":
-                    audio_url = rf.get("url", "")
-                    break
-            if not audio_url:
-                audio_url = info["requested_formats"][-1].get("url", "")
-
-        if not audio_url and formats:
-            for f in reversed(formats):
-                if f.get("acodec") and f["acodec"] != "none":
-                    audio_url = f["url"]
-                    break
-            if not audio_url:
-                audio_url = formats[-1].get("url", "")
-
-        if not audio_url:
-            raise RuntimeError("No audio URL from yt-dlp")
-
-        duration = float(info.get("duration") or 0)
-
-        meta = {
-            "title": info.get("title", "") or info.get("fulltitle", ""),
-            "description": (info.get("description") or "")[:500],
-            "channel": info.get("channel", "") or info.get("uploader", "") or info.get("uploader_id", ""),
-            "categories": ", ".join(info.get("categories") or []),
-            "tags": ", ".join((info.get("tags") or [])[:15]),
-            "platform": platform,
-        }
-
-        # HLS (m3u8) ve broadcast stream'leri için protocol whitelist gerekli
-        ffmpeg_args = [FFMPEG]
-        if "m3u8" in audio_url.lower() or _is_broadcast_url(url):
-            ffmpeg_args.extend(["-protocol_whitelist", "file,http,https,tcp,tls,crypto"])
-        ffmpeg_args.extend([
-            "-i", audio_url,
-            "-vn", "-acodec", "libopus", "-ar", str(SAMPLE_RATE), "-ac", "1",
-            "-f", "ogg", "-loglevel", "error", "pipe:1",
-        ])
-
-        proc = subprocess.run(ffmpeg_args, capture_output=True, timeout=600)
-        if proc.returncode != 0:
-            raise RuntimeError(f"Audio download error: {proc.stderr.decode(errors='ignore')}")
-
-        buffer = io.BytesIO(proc.stdout)
-        # yt-dlp bazen broadcast için duration=0 döner; ffprobe ile gerçek süreyi al
-        if duration <= 0 and len(proc.stdout) > 0:
-            duration = _get_duration_from_buffer(buffer)
-            buffer.seek(0)
-            # ffprobe da 0 dönerse, opus ~3KB/s civarı olduğundan buffer boyutundan tahmin et
-            if duration <= 0 and len(proc.stdout) > 1000:
-                duration = max(60.0, len(proc.stdout) / 3000.0)
-
-        return buffer, duration, meta
-    finally:
-        if cookies_tmp_path and os.path.isfile(cookies_tmp_path):
-            try:
-                os.unlink(cookies_tmp_path)
-            except OSError:
-                pass
+    # RapidAPI Social Download All In One (YouTube, X, TikTok vb.) — zorunlu
+    if not (os.getenv("RAPIDAPI_KEY") and os.getenv("RAPIDAPI_YOUTUBE_HOST")):
+        raise RuntimeError("RAPIDAPI_KEY and RAPIDAPI_YOUTUBE_HOST required")
+    result = _download_audio_via_rapidapi_social(url, platform)
+    if result is not None:
+        return result
+    raise RuntimeError("Downloader Service Unavailable")
 
 
 def extract_audio_chunk(
@@ -898,9 +862,8 @@ async def worker():
 
         try:
             # 1) Download
-            user_cookies = task.get("user_cookies")
             await progress.put({"stage": "downloading", "message": "Downloading audio..."})
-            audio_buffer, duration, video_meta = await asyncio.to_thread(download_audio, url, user_cookies)
+            audio_buffer, duration, video_meta = await asyncio.to_thread(download_audio, url)
             num_chunks = math.ceil(duration / CHUNK_DURATION)
 
             await progress.put({
@@ -990,14 +953,7 @@ async def worker():
                 })
 
         except Exception as exc:
-            msg = str(exc)
-            if "Sign in to confirm" in msg or ("cookies" in msg.lower() and "youtube" in msg.lower()):
-                cookies_path = os.getenv("COOKIES_FILE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
-                if not os.path.isfile(cookies_path):
-                    msg += " | Çözüm: cookies.txt oluşturup /opt/nouscript/ klasörüne yükleyin."
-                else:
-                    msg += " | cookies.txt mevcut; cookies expire olmuş olabilir. Yeniden export edin."
-            await progress.put({"stage": "error", "message": f"Error: {msg}"})
+            await progress.put({"stage": "error", "message": f"Error: {str(exc)}"})
         finally:
             if audio_buffer is not None:
                 audio_buffer.close()
@@ -1028,6 +984,64 @@ async def index():
         return HTMLResponse(content=f.read())
 
 
+@app.post("/api/v1/summarize")
+async def api_v1_summarize(request: Request):
+    """
+    RapidAPI için sync JSON endpoint. POST body: {url, mode?, lang?, source_lang?}
+    mode: summary | subtitle, lang: English, Turkish, vb., source_lang: Auto | en | tr | ...
+    """
+    if not _is_rapidapi_request(request):
+        return JSONResponse({"error": "x-rapidapi-key header required"}, status_code=401)
+
+    rate_key = f"rapidapi:{request.headers.get('x-rapidapi-key', '')}"
+    if not _consume_request(rate_key, RATE_LIMIT_MAX_RAPIDAPI):
+        return JSONResponse({"error": f"Rate limit reached ({RATE_LIMIT_MAX_RAPIDAPI}/hour)"}, status_code=429)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    url = (body.get("url") or "").strip()
+    if not url or not re.search(r"youtube\.com|youtu\.be|twitter\.com|x\.com", url, re.I):
+        return JSONResponse({"error": "Valid YouTube or X (Twitter) URL required"}, status_code=400)
+
+    mode = body.get("mode", "summary")
+    if mode not in ("summary", "subtitle"):
+        mode = "summary"
+    lang = body.get("lang", "English")
+    sl = body.get("source_lang", "Auto")
+    source_lang = LANG_CODE_MAP.get(sl) if sl in LANG_CODE_MAP else (sl if isinstance(sl, str) and len(sl) == 2 else None)
+
+    progress_queue: asyncio.Queue = asyncio.Queue()
+    task = {
+        "url": url,
+        "mode": mode,
+        "lang": lang,
+        "source_lang": source_lang,
+        "progress": progress_queue,
+        "user_cookies": None,
+    }
+
+    if processing_queue.full():
+        return JSONResponse({"error": "Server busy, try again later"}, status_code=503)
+
+    await processing_queue.put(task)
+
+    while True:
+        msg = await progress_queue.get()
+        stage = msg.get("stage")
+        if stage == "done":
+            return JSONResponse({
+                "status": "ok",
+                "summary": msg.get("summary"),
+                "subtitle": msg.get("subtitle"),
+                "transcript": msg.get("transcript", ""),
+            })
+        if stage == "error":
+            return JSONResponse({"error": msg.get("message", "Unknown error")}, status_code=500)
+
+
 @app.get("/api/remaining")
 async def api_remaining(request: Request):
     ip = request.client.host
@@ -1042,25 +1056,6 @@ async def api_remaining(request: Request):
     })
 
 
-@app.post("/api/register-cookies")
-async def register_cookies(request: Request):
-    """Kullanıcı cookie'lerini geçici olarak kaydet, cookie_id döndür."""
-    try:
-        body = await request.json()
-        cookies = body.get("cookies", "").strip()
-    except Exception:
-        return JSONResponse({"error": "Invalid request"}, status_code=400)
-    if not cookies or len(cookies) > 100_000:
-        return JSONResponse({"error": "Invalid cookies"}, status_code=400)
-    now = time.time()
-    # Eski kayıtları temizle
-    global _user_cookies_store
-    _user_cookies_store = {k: v for k, v in _user_cookies_store.items() if now - v[1] < _USER_COOKIES_TTL}
-    cookie_id = secrets.token_urlsafe(16)
-    _user_cookies_store[cookie_id] = (cookies, now)
-    return JSONResponse({"cookie_id": cookie_id})
-
-
 @app.get("/api/process")
 async def process(
     request: Request,
@@ -1072,23 +1067,22 @@ async def process(
     cookie_id: str = "",
 ):
     ip = request.client.host
+    is_rapidapi = _is_rapidapi_request(request)
 
-    turnstile_result = verify_turnstile(cf_token)
-    if turnstile_result is False:
-        return JSONResponse({"error": "Bot verification failed. Please refresh and try again."}, status_code=403)
+    if is_rapidapi:
+        rate_key, limit = _get_rate_limit_key(request)
+        verified = True
+    else:
+        turnstile_result = verify_turnstile(cf_token)
+        if turnstile_result is False:
+            return JSONResponse({"error": "Bot verification failed. Please refresh and try again."}, status_code=403)
+        verified = turnstile_result is True
+        limit = RATE_LIMIT_MAX if verified else RATE_LIMIT_MAX_UNVERIFIED
+        rate_key = ip
 
-    verified = turnstile_result is True
-    limit = RATE_LIMIT_MAX if verified else RATE_LIMIT_MAX_UNVERIFIED
-
-    if not _consume_request(ip, limit):
+    if not _consume_request(rate_key, limit):
         msg = f"Rate limit reached ({limit}/hour)." + ("" if verified else " Complete bot verification for higher limits.")
         return JSONResponse({"error": msg}, status_code=429)
-
-    user_cookies: str | None = None
-    if cookie_id:
-        entry = _user_cookies_store.pop(cookie_id, None)
-        if entry:
-            user_cookies = entry[0]
 
     progress_queue: asyncio.Queue = asyncio.Queue()
 
@@ -1100,7 +1094,6 @@ async def process(
             "lang": lang,
             "source_lang": whisper_lang,
             "progress": progress_queue,
-            "user_cookies": user_cookies,
         }
 
         if processing_queue.full():
