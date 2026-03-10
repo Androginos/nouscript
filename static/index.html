@@ -455,8 +455,11 @@ document.getElementById("cookiePasteBtn")?.addEventListener("click",()=>{
   if(!txt){alert("Lütfen cookies.txt içeriğini yapıştırın.");return;}
   if(!txt.includes(".youtube.com")){alert("Geçerli YouTube cookies bulunamadı. Export ederken youtube.com açık olsun.");return;}
   userCookies=txt;
-  cookieAllowBtn?.classList.add("granted");
-  cookieAllowBtn?.querySelector("span").textContent="Cookie izni verildi";
+  if(cookieAllowBtn){
+    cookieAllowBtn.classList.add("granted");
+    const sp=cookieAllowBtn.querySelector("span");
+    if(sp)sp.textContent="Cookie izni verildi";
+  }
   cookieInstallHint.style.display="none";
 });
 
