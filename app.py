@@ -295,10 +295,16 @@ def _download_audio_via_rapidapi_ytapi(
         print(f"[RapidAPI yt-api] {e}")
         return None
 
-    # stream URL çıkar: streamingData, format, url vb.
+    # stream URL çıkar: yt-api kök seviyede formats/adaptiveFormats döner
     download_url = None
     streaming = api_data.get("streamingData") or {}
-    formats = streaming.get("adaptiveFormats") or streaming.get("formats") or []
+    formats = (
+        api_data.get("adaptiveFormats")
+        or api_data.get("formats")
+        or streaming.get("adaptiveFormats")
+        or streaming.get("formats")
+        or []
+    )
     for f in formats:
         if isinstance(f, dict):
             mime = (f.get("mimeType") or "").lower()
