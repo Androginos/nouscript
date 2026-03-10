@@ -120,6 +120,7 @@
     .error-card.visible{display:block}
     .error-card .cookie-error-link{display:inline-block;margin-top:10px;color:var(--accent);font-weight:600;text-decoration:none}
     .error-card .cookie-error-link:hover{text-decoration:underline}
+    .turnstile-fixed{position:fixed;bottom:16px;right:16px;z-index:100}
 
     .history-section{margin-top:24px}
     .history-toggle{display:flex;align-items:center;gap:8px;background:none;border:1px solid var(--border);border-radius:var(--radius);padding:12px 18px;color:var(--text-muted);font-size:.85rem;cursor:pointer;width:100%;transition:all .2s}
@@ -298,7 +299,7 @@
         <button type="button" class="btn-outline btn-paste" id="cookiePasteBtn">Kullan</button>
       </details>
     </div>
-    <div id="turnstileWidget" style="display:flex;justify-content:center;margin-top:10px"></div>
+    <div id="turnstileWidget" class="turnstile-fixed"></div>
   </div>
 
   <!-- Global Progress -->

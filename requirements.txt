@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+httpx
 yt-dlp
 openai-whisper
 openai
