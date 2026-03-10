@@ -918,6 +918,12 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
             return result
         print(f"[RapidAPI] {host} başarısız, sonraki deneniyor...")
 
+    # X (Twitter): RapidAPI "No medias found" verirse yt-dlp ile dene
+    if platform == "twitter":
+        result = _download_audio_via_ytdlp_subprocess(url, _get_cookies_path(), platform)
+        if result is not None:
+            return result
+
     raise RuntimeError("Downloader Service Unavailable")
 
 
