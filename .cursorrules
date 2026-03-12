@@ -12,6 +12,7 @@
 - **Fallback: Local Whisper** — `whisper.load_model("small")` ile lokal çalışır. Groq erişilemezse veya hata verirse otomatik devreye girer.
 - **Video Language:** Kullanıcı videonun kaynak dilini seçebilir (Auto-detect veya 14 dil). Bu bilgi Whisper'a `language` parametresi olarak iletilir, doğruluğu artırır.
 - **Chunking Strategy:** Uzun videoları 5 dakikalık sanal parçalara (chunks) bölerek işle. Her chunk WAV formatında Groq'a gönderilir (max 25MB/chunk).
+- **Hermes Agent / Skills:** Transkripsiyon modeli **Hermes değildir**. Hermes agent ve `nouscriptvideo` skill'i yalnızca NouScript API'deki `/api/v1/download_and_transcribe` endpoint'ini tetikler; asıl ses→metin işi her zaman Groq Whisper API veya local Whisper tarafından yapılır.
 
 ## 3. Platform & Binary Discovery
 - **Linux (systemd):** `_build_search_path()` varsayılan PATH kullanır (`/usr/local/bin:/usr/bin:/bin`) — ffmpeg/ffprobe bulunur.
@@ -101,3 +102,12 @@ YouTube AI Summarizer/
 - **Systemd PATH:** `Environment="PATH=/usr/local/bin:/usr/bin:/bin:/opt/nouscript/venv/bin"` — ffmpeg için gerekli (minimal env)
 - **Nginx:** `proxy_buffering off` (SSE için), `proxy_read_timeout 86400`
 - **Detaylı rehber:** DEPLOYMENT.md
+
+## 15. Telegram, Hermes Skill & Sunucu Güncelleme
+- **İki bot:** (1) **Sumbot** (üretim) — `nouscript-telegram-bot.service`, video özet/altyazı; (2) **Hermes** (@Nouscript_bot) — `hermes gateway`, genel sohbet + `nouscriptvideo` skill ile aynı API'yi tetikler (transkript/özet/altyazı).
+- **Hermes .env** (`~/.hermes/.env`): `TELEGRAM_BOT_TOKEN`, `NOUSCRIPT_API_BASE`, `RAPIDAPI_KEY`; izin için `GATEWAY_ALLOW_ALL_USERS=true`, `TELEGRAM_ALLOW_ALL_USERS=true`. Skill script env görmezse `~/.hermes/.env` dosyasını kendisi yükler (`call_nouscript.py`).
+- **Hermes skill:** Adı `nouscriptvideo` (slash: `/nouscriptvideo`, tire yok). Modlar: `summary`, `subtitle`, `transcript`. Skill sadece NouScript API'yi çağırır; transkripsiyon Groq/local Whisper'da yapılır.
+- **Groq limit:** Günlük kota (429) dolunca **local Whisper'a düşmüyoruz** — kullanıcıya net hata: "Daily transcription quota exceeded (Groq limit)…". Groq limit organization-level (aynı hesapta ikinci API key kotayı artırmaz).
+- **Local Whisper:** Chunk'ta exception (örn. reshape/tensor) olursa o parçayı atla (`return []`), isteği 500 ile patlatma.
+- **Repo güncelleme sonrası sunucu:** `git pull`; skill değiştiyse `cp` ile `SKILL.md` ve `call_nouscript.py` → `~/.hermes/skills/nouscriptvideo/`, `hermes gateway stop` + `hermes gateway start`; backend değiştiyse `systemctl restart uvicorn`. Detay: SUNUCU_KONTROL.md "Repo güncellendiğinde" bloğu.
+- **Loglar:** Sumbot: `journalctl -u nouscript-telegram-bot -f --no-pager`; backend: `journalctl -u uvicorn -f --no-pager`; Hermes: `~/.hermes/logs/gateway.log`, `~/.hermes/logs/errors.log`.
