@@ -1421,7 +1421,14 @@ async def api_v1_summarize(request: Request):
                 "transcript": msg.get("transcript", ""),
             })
         if stage == "error":
-            return JSONResponse({"error": msg.get("message", "Unknown error")}, status_code=500)
+            message = msg.get("message", "Unknown error")
+            # İndirme hatası → 503, kullanıcıya net mesaj
+            if "downloader" in message.lower() or "download" in message.lower() or "unavailable" in message.lower():
+                return JSONResponse(
+                    {"error": "Could not download video. Try another link or try again later."},
+                    status_code=503,
+                )
+            return JSONResponse({"error": message}, status_code=500)
 
 
 @app.get("/api/remaining")

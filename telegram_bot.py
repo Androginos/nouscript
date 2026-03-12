@@ -76,6 +76,12 @@ async def call_nouscript_api(url: str, mode: str) -> dict:
         if resp.status_code >= 500:
             body = resp.text
             print(f"[API 5xx] status={resp.status_code} body={body[:500]}", file=sys.stdout)
+            try:
+                data = resp.json()
+                err = data.get("error", body[:300])
+            except Exception:
+                err = body[:300] or f"Server error {resp.status_code}"
+            raise RuntimeError(err)
         resp.raise_for_status()
         data = resp.json()
         if "error" in data:
