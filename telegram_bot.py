@@ -11,6 +11,7 @@ import traceback
 import httpx
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.error import NetworkError, RetryAfter, TimedOut
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -159,20 +160,31 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             filename = "summary.txt"
             # Özeti hem mesaj metni hem .txt olarak ver (hızlı okuma + dosya)
             msg_limit = 4090  # Telegram mesaj sınırı 4096
-            if len(content) <= msg_limit:
-                await query.edit_message_text(content)
-            else:
-                await query.edit_message_text(
-                    content[: msg_limit - 50].rstrip() + "\n\n… 📎 Tam metin ekte summary.txt dosyasında."
-                )
+            try:
+                if len(content) <= msg_limit:
+                    await query.edit_message_text(content)
+                else:
+                    await query.edit_message_text(
+                        content[: msg_limit - 50].rstrip() + "\n\n… 📎 Tam metin ekte summary.txt dosyasında."
+                    )
+            except (TimedOut, NetworkError, RetryAfter) as e:
+                print(f"[Telegram API] edit_message_text failed: {type(e).__name__}: {e}", file=sys.stdout)
+                await query.edit_message_text("Summary ready. Sending file…")
             buf = io.BytesIO(content.encode("utf-8"))
             buf.name = filename
-            await context.bot.send_document(
-                chat_id=chat_id,
-                document=buf,
-                filename=filename,
-                caption="summary.txt",
-            )
+            try:
+                await context.bot.send_document(
+                    chat_id=chat_id,
+                    document=buf,
+                    filename=filename,
+                    caption="summary.txt",
+                )
+            except (TimedOut, NetworkError, RetryAfter) as e:
+                print(f"[Telegram API] send_document failed: {type(e).__name__}: {e}", file=sys.stdout)
+                await query.edit_message_text(
+                    "Summary is ready but sending the file failed (timeout/network). You can try again or use the website."
+                )
+                return
         else:
             content = (data.get("subtitle") or "").strip()
             if not content:
@@ -181,24 +193,40 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             filename = "subtitles.srt" if re.match(r"^\d+\s", content) else "subtitles.txt"
             buf = io.BytesIO(content.encode("utf-8"))
             buf.name = filename
-            await context.bot.send_document(
-                chat_id=chat_id,
-                document=buf,
-                filename=filename,
-                caption="Here is your file.",
-            )
-            await query.edit_message_text("Done. You can download the file above.")
+            try:
+                await context.bot.send_document(
+                    chat_id=chat_id,
+                    document=buf,
+                    filename=filename,
+                    caption="Here is your file.",
+                )
+                await query.edit_message_text("Done. You can download the file above.")
+            except (TimedOut, NetworkError, RetryAfter) as e:
+                print(f"[Telegram API] send_document failed: {type(e).__name__}: {e}", file=sys.stdout)
+                await query.edit_message_text(
+                    "Subtitles are ready but sending the file failed (timeout/network). Please try again."
+                )
+                return
+    except (TimedOut, NetworkError, RetryAfter) as e:
+        print(f"[Telegram API] {type(e).__name__}: {e}", file=sys.stdout)
+        try:
+            await query.edit_message_text(f"Telegram limit/network error: {type(e).__name__}. Please try again later.")
+        except Exception:
+            pass
+        return
     except Exception:
         traceback.print_exc(file=sys.stdout)
         raise
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Yakalanmamış hataları terminale yazdır."""
+    """Yakalanmamış hataları terminale yazdır (journalctl ile takip için)."""
     err = getattr(context, "error", None)
     if err:
+        print(f"[Telegram bot ERROR] {type(err).__name__}: {err}", file=sys.stdout)
         traceback.print_exception(type(err), err, err.__traceback__, file=sys.stdout)
     else:
+        print("[Telegram bot ERROR] (no context.error)", file=sys.stdout)
         traceback.print_exc(file=sys.stdout)
     if update and isinstance(update, Update) and update.effective_chat:
         try:
@@ -218,8 +246,8 @@ def main() -> None:
         Application.builder()
         .token(TOKEN)
         .connect_timeout(30.0)
-        .read_timeout(60.0)
-        .write_timeout(60.0)
+        .read_timeout(90.0)
+        .write_timeout(120.0)
     )
     app = builder.build()
     app.add_handler(CommandHandler("start", start))
