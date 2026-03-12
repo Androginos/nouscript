@@ -157,23 +157,37 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 await query.edit_message_text("Could not generate a summary.")
                 return
             filename = "summary.txt"
+            # Özeti hem mesaj metni hem .txt olarak ver (hızlı okuma + dosya)
+            msg_limit = 4090  # Telegram mesaj sınırı 4096
+            if len(content) <= msg_limit:
+                await query.edit_message_text(content)
+            else:
+                await query.edit_message_text(
+                    content[: msg_limit - 50].rstrip() + "\n\n… 📎 Tam metin ekte summary.txt dosyasında."
+                )
+            buf = io.BytesIO(content.encode("utf-8"))
+            buf.name = filename
+            await context.bot.send_document(
+                chat_id=chat_id,
+                document=buf,
+                filename=filename,
+                caption="summary.txt",
+            )
         else:
             content = (data.get("subtitle") or "").strip()
             if not content:
                 await query.edit_message_text("Could not generate subtitles.")
                 return
             filename = "subtitles.srt" if re.match(r"^\d+\s", content) else "subtitles.txt"
-
-        buf = io.BytesIO(content.encode("utf-8"))
-        buf.name = filename
-
-        await context.bot.send_document(
-            chat_id=chat_id,
-            document=buf,
-            filename=filename,
-            caption="Here is your file.",
-        )
-        await query.edit_message_text("Done. You can download the file above.")
+            buf = io.BytesIO(content.encode("utf-8"))
+            buf.name = filename
+            await context.bot.send_document(
+                chat_id=chat_id,
+                document=buf,
+                filename=filename,
+                caption="Here is your file.",
+            )
+            await query.edit_message_text("Done. You can download the file above.")
     except Exception:
         traceback.print_exc(file=sys.stdout)
         raise

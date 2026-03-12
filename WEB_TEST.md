@@ -33,7 +33,7 @@ curl -s -X POST "https://nouscript.com/api/v1/summarize" \
 
 1. **Adres:** https://nouscript.com (veya localhost:8000)
 2. **Rate limit:** Sayfa açıldığında “X / 10 remaining” benzeri bir sayaç görünmeli.
-3. **Link:** Geçerli bir YouTube veya X linki yapıştırın (örn. kısa bir video).
+3. **Link:** Geçerli bir YouTube veya X (Twitter) linki yapıştırın (örn. kısa bir video). **X testi:** `https://x.com/.../status/...` veya `https://twitter.com/.../status/...` ile Summary/Subtitles deneyin; backend YouTube ile aynı pipeline’ı kullanır (önce yt-dlp, gerekirse RapidAPI social).
 4. **Mod:** Summary veya Subtitles seçin.
 5. **Dil:** Hedef dili seçin.
 6. **Turnstile:** “I’m not a robot” / doğrulama kutusunu tamamlayın (varsa).
@@ -53,7 +53,8 @@ curl -s -X POST "https://nouscript.com/api/v1/summarize" \
 | 2 | Ana sayfa yükleniyor       | Tarayıcıda /                  | Sayfa + rate sayaç                |
 | 3 | Özet (Summary)             | Link + Summary + Submit       | Özet metni + export               |
 | 4 | Altyazı (Subtitles)        | Link + Subtitles + Submit     | SRT metni + export                |
-| 5 | Hata mesajı                | Geçersiz link veya 503        | Net hata mesajı (download vs.)   |
+| 5 | X (Twitter) linki          | X/twitter status URL + Submit  | Özet veya altyazı (yt-dlp / RapidAPI social) |
+| 6 | Hata mesajı                | Geçersiz link veya 503        | Net hata mesajı (download vs.)   |
 
 ---
 

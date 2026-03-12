@@ -45,3 +45,15 @@ Hermes’e video özeti/altyazı aldırtmak için bu skill’i kurun.
 
 - Çözümleme (indirme, transkripsiyon, özet) **NouScript API** tarafında yapılır; Hermes sadece isteği yollar ve sonucu iletir.
 - Uzun videolarda API 1–5 dakika sürebilir; agent bekleyecektir.
+
+## Teyit: Video indirme nerede yapılıyor?
+
+**Video indirme Hermes agent veya skill tarafında yapılmaz.** Akış:
+
+1. Kullanıcı Telegram’da @Nouscript_bot (Hermes)’e video linki + “özet çıkar” der.
+2. Hermes bu skill’i kullanır; `call_nouscript.py` çalışır.
+3. `call_nouscript.py` **NouScript API**’ye `POST /api/v1/summarize` (url, mode) gönderir.
+4. **İndirme, transkripsiyon ve özet** tamamen **NouScript API (app.py)** tarafında yapılır (yt-dlp / RapidAPI, Whisper, Groq).
+5. API sonucu (summary/subtitle JSON) skill’e döner; Hermes kullanıcıya metni iletir.
+
+Yani Hermes skill yalnızca “istemci”: isteği API’ye iletir, cevabı kullanıcıya gösterir. Web sitesinden (nouscript.com) veya Telegram Sumbot’tan aynı linkle test ettiğinde aynı backend kullanılır.

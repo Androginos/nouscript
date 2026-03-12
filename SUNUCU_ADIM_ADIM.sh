@@ -4,6 +4,9 @@
 
 cd /opt/nouscript
 
+# Hızlı güncelleme + restart (sadece bunu çalıştırmak için):
+#   git pull && sudo systemctl restart nouscript && sudo systemctl restart nouscript-telegram-bot 2>/dev/null; echo "Done."
+
 echo "========== Adım 1: Git pull =========="
 git pull
 ls -la test_web_backend.py hermes_skill_nouscript_video/ 2>/dev/null || true
