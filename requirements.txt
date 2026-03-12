@@ -6,3 +6,4 @@ openai-whisper
 openai
 numpy
 python-dotenv
+python-telegram-bot>=21.0
