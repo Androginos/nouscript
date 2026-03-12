@@ -13,6 +13,8 @@ metadata:
 
 Summarize a video, get the full transcript, or get subtitles by calling the NouScript API. All steps (download, transcribe, summary/subtitle) run on the API. Use when the user shares a YouTube or X link and wants a summary, transcript only, or subtitle file.
 
+**Önemli:** Kullanıcı bir video linki (youtube.com, youtu.be, x.com) paylaşıp "transkript", "sadece transkript", "metnini çıkar", "özetle", "altyazı" istediğinde **mutlaka bu skill'i kullan**. "Yerine getiremem" deme; `call_nouscript.py` ile API'yi çağır. Link mesajda yoksa kullanıcıdan iste.
+
 ## Agent yetkinlikleri (capabilities)
 
 Bu skill ile Hermes agent şunları **tetikleyebilir** (işi API’de yürütür):
@@ -24,10 +26,12 @@ Bu skill ile Hermes agent şunları **tetikleyebilir** (işi API’de yürütür
 
 Kullanıcı “sadece transkript ver”, “metnini çıkar”, “özetle”, “altyazı al” gibi taleplerde bu yetkinlikler kullanılır.
 
-## When to Use
+## When to Use (always prefer this skill for video transcript/summary/subtitle)
 
-- User sends a YouTube link (youtube.com, youtu.be) or X/Twitter link (x.com, twitter.com) and asks for a **summary**, **transcript only**, or **subtitles**.
-- User says "summarize this video", "get subtitles for this", "just the transcript", "özet çıkar", "altyazı al", "sadece transkript / metin" with a link.
+- User sends a YouTube or X link **and** asks for summary, transcript, or subtitles → **use this skill**, run `call_nouscript.py`.
+- Trigger phrases (with or without link in same message): "summarize this video", "get subtitles", "just the transcript", "özet çıkar", "altyazı al", "sadece transkript", "transkriptini ver", "metnini çıkar", "bu videonun transkripti", "video metni".
+- If the message has no URL but the user clearly wants a video's transcript/summary/subtitle, ask: "Lütfen video linkini (YouTube veya X) gönderin." Then run the script with that link.
+- **Do not** respond with "I cannot fulfill this request" for transcript/summary/subtitle; use the script instead.
 
 ## Prerequisites
 
