@@ -26,9 +26,9 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 API_BASE = os.getenv("NOUSCRIPT_API_BASE", "").rstrip("/")
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "").strip()
 
-# Geçerli video linki (YouTube, X/Twitter)
+# Geçerli video linki (YouTube, X/Twitter) — video ID ve query string dahil tam URL
 URL_PATTERN = re.compile(
-    r"https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/|(?:twitter|x)\.com/\S+/status/\d+)",
+    r"https?://(?:www\.)?(?:youtube\.com/watch\?v=[^\s&]+|youtu\.be/[a-zA-Z0-9_-]+(?:\?[^\s]*)?|(?:twitter|x)\.com/\S+/status/\d+)",
     re.I,
 )
 

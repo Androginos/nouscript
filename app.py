@@ -1385,8 +1385,18 @@ async def api_v1_summarize(request: Request):
         return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
 
     url = (body.get("url") or "").strip()
+    # Görünmez karakterleri temizle (Telegram vb. kaynaklı)
+    url = re.sub(r"[\u200b-\u200d\ufeff]", "", url)
     if not url or not re.search(r"youtube\.com|youtu\.be|twitter\.com|x\.com", url, re.I):
         return JSONResponse({"error": "Valid YouTube or X (Twitter) URL required"}, status_code=400)
+    # YouTube için hemen normalize et; geçersiz linkleri erkenden reddet
+    if "youtube.com" in url or "youtu.be" in url:
+        url = _normalize_youtube_url(url)
+        if not _extract_youtube_video_id(url):
+            return JSONResponse(
+                {"error": "Could not parse YouTube video ID from URL. Check the link."},
+                status_code=400,
+            )
 
     mode = body.get("mode", "summary")
     if mode not in ("summary", "subtitle"):
