@@ -422,13 +422,13 @@ def _download_audio_via_rapidapi_ytmp3(
         print(f"[RapidAPI yt-mp3] No file URL. Keys: {list(api_data.keys())}")
         return None
 
-    # Dosya 20-30 sn'de hazır olabilir; 404 ise kısa bekle ve tekrar dene
+    # CDN indirme: timeout 150s, timeout/network hatasında 2 kez daha dene
     print(f"[RapidAPI yt-mp3] Downloading... (API CDN)")
     headers_dl = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"}
     raw_data = None
     for attempt in range(7):
         try:
-            with httpx.Client(timeout=90.0, follow_redirects=True) as client:
+            with httpx.Client(timeout=150.0, follow_redirects=True) as client:
                 r = client.get(download_url, headers=headers_dl)
                 if r.status_code == 200:
                     raw_data = r.content
@@ -439,7 +439,10 @@ def _download_audio_via_rapidapi_ytmp3(
                 print(f"[RapidAPI yt-mp3] Download {r.status_code} (attempt {attempt + 1})")
                 return None
         except Exception as e:
-            print(f"[RapidAPI yt-mp3] Download error: {e}")
+            print(f"[RapidAPI yt-mp3] Download error (attempt {attempt + 1}/7): {e}", file=sys.stderr, flush=True)
+            if attempt < 4:
+                time.sleep(5)
+                continue
             return None
 
     if not raw_data or len(raw_data) < 1000:
@@ -924,10 +927,6 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
 
     for host in hosts:
         host_lower = host.lower()
-        # YouTube için sadece YouTube odaklı host'ları dene; social "Invalid Url" dönebiliyor
-        if platform == "youtube" and "social-download" in host_lower:
-            print(f"[RapidAPI] {host} skipping for YouTube (social).")
-            continue
         if "youtube-mp3-audio-video-downloader" in host_lower:
             result = _download_audio_via_rapidapi_ytmp3(url, host, api_key)
         elif "yt-api" in host_lower:
@@ -940,7 +939,11 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
             return result
         print(f"[RapidAPI] {host} failed, trying next...")
 
-    raise RuntimeError("Downloader Service Unavailable")
+    print("[download_audio] All downloaders failed (yt-dlp + all RapidAPI hosts)", file=sys.stderr, flush=True)
+    raise RuntimeError(
+        "Downloader Service Unavailable (yt-dlp and RapidAPI fallbacks failed). "
+        "Check RAPIDAPI_KEY, RAPIDAPI_HOSTS, and server logs."
+    )
 
 
 def extract_audio_chunk(
