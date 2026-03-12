@@ -80,22 +80,27 @@ async def call_nouscript_api(url: str, mode: str, lang: str = "English") -> dict
         "source_lang": "Auto",
     }
 
-    async with httpx.AsyncClient(timeout=600) as client:
-        resp = await client.post(endpoint, json=payload, headers=headers)
-        if resp.status_code >= 500:
-            body = resp.text
-            print(f"[API 5xx] status={resp.status_code} body={body[:500]}", file=sys.stdout)
-            try:
-                data = resp.json()
-                err = data.get("error", body[:300])
-            except Exception:
-                err = body[:300] or f"Server error {resp.status_code}"
-            raise RuntimeError(err)
-        resp.raise_for_status()
-        data = resp.json()
-        if "error" in data:
-            raise RuntimeError(data["error"])
-        return data
+    timeout = httpx.Timeout(600.0, connect=30.0)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(endpoint, json=payload, headers=headers)
+    except httpx.RequestError as e:
+        print(f"[Telegram bot] API connection error: {type(e).__name__}: {e}", file=sys.stdout)
+        raise RuntimeError(f"Could not reach API: {type(e).__name__}. Check NOUSCRIPT_API_BASE and network.")
+    if resp.status_code >= 500:
+        body = resp.text
+        print(f"[API 5xx] status={resp.status_code} body={body[:500]}", file=sys.stdout)
+        try:
+            data = resp.json()
+            err = data.get("error", body[:300])
+        except Exception:
+            err = body[:300] or f"Server error {resp.status_code}"
+        raise RuntimeError(err)
+    resp.raise_for_status()
+    data = resp.json()
+    if "error" in data:
+        raise RuntimeError(data["error"])
+    return data
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
