@@ -37,7 +37,7 @@ hermes gateway status 2>/dev/null || true
 
 echo ""
 echo "========== Step 8: Hermes skill =========="
-ls -la ~/.hermes/skills/nouscript-video/ 2>/dev/null || echo "Skill folder missing; see SUNUCU_KONTROL.md Step 8 for setup."
+ls -la ~/.hermes/skills/nouscriptvideo/ 2>/dev/null || echo "Skill folder missing; see SUNUCU_KONTROL.md Step 8 for setup."
 
 echo ""
 echo "========== Done. Step 5 (browser test) and Telegram tests are manual. =========="

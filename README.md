@@ -2,7 +2,7 @@
 
 **Multi-Platform Video & Audio Intelligence — Hermes Agent & Web**
 
-NouScript turns video and audio from YouTube, X (Twitter), and Twitter Spaces into structured summaries and subtitles. **We build on [Hermes Agent](https://github.com/NousResearch/hermes-agent):** the gateway and **nouscript-video** skill *trigger* the pipeline (download → transcription → summary) by calling the NouScript API. The **model** [Hermes-4-70B](https://nousresearch.com) by Nous Research does the actual **summary and translation** (14 languages); the agent does not run the model, it only invokes the API that uses it. The same API backs the website and the Telegram Sumbot.
+NouScript turns video and audio from YouTube, X (Twitter), and Twitter Spaces into structured summaries and subtitles. **We build on [Hermes Agent](https://github.com/NousResearch/hermes-agent):** the gateway and **nouscriptvideo** skill *trigger* the pipeline (download → transcription → summary) by calling the NouScript API. The **model** [Hermes-4-70B](https://nousresearch.com) by Nous Research does the actual **summary and translation** (14 languages); the agent does not run the model, it only invokes the API that uses it. The same API backs the website and the Telegram Sumbot.
 
 ---
 
@@ -41,7 +41,7 @@ Without this **model’s** reasoning capabilities, NouScript would be limited to
 
 **Hermes Agent–centric:**
 
-- **Hermes Agent** — Gateway, skills, Telegram chat bot (@Nouscript_bot). The **nouscript-video** skill triggers the full pipeline: **download** (yt-dlp / RapidAPI) → **transcription** (Whisper, via API) → **summary** (Hermes-4-70B via API). So download and transcription are invoked by the skill; they run on the NouScript API when the skill calls `/api/v1/download_and_transcribe` and `/api/v1/summarize_from_transcript`.
+- **Hermes Agent** — Gateway, skills, Telegram chat bot (@Nouscript_bot). The **nouscriptvideo** skill triggers the full pipeline: **download** (yt-dlp / RapidAPI) → **transcription** (Whisper, via API) → **summary** (Hermes-4-70B via API). So download and transcription are invoked by the skill; they run on the NouScript API when the skill calls `/api/v1/download_and_transcribe` and `/api/v1/summarize_from_transcript`.
 - **Transcription (skill pipeline):** Triggered by the Hermes skill via the API — Groq Whisper API (`whisper-large-v3-turbo`) + local Whisper fallback. Same pipeline is used by the website and the Telegram Sumbot when they call the API.
 - **Summary & translation (the model, not the agent):** [Hermes-4-70B](https://portal.nousresearch.com/models) by Nous Research produces the actual summary and subtitle translation. The **agent** only triggers the pipeline (skill → API); the **model** runs on the backend (Nous API) when the NouScript API requests it.
 - **Backend:** FastAPI, Python (NouScript API consumed by the web, Telegram Sumbot, and Hermes skill).
@@ -78,7 +78,7 @@ Open `http://localhost:8000`.
 |--------|-------------|
 | **Website** | [nouscript.com](https://nouscript.com) — paste a YouTube or X link, get summary or subtitles with real-time progress. |
 | **Telegram Bot** | Dedicated Sumbot: send a video link, choose Summary or Subtitles, receive the result as in-chat text (for summary) plus a `.txt` / `.srt` file. Uses the same NouScript API (RapidAPI key). Configure `TELEGRAM_BOT_TOKEN`, `NOUSCRIPT_API_BASE`, `RAPIDAPI_KEY` in `.env`. |
-| **Hermes Agent & Skills** | We use **Hermes Agent** (the agent framework): e.g. @Nouscript_bot on Telegram for chat, with the **nouscript-video** skill. The skill runs video **download + transcript** and **summary from transcript** as separate API steps (`/api/v1/download_and_transcribe`, `/api/v1/summarize_from_transcript`). See `hermes_skill_nouscript_video/` for setup. |
+| **Hermes Agent & Skills** | We use **Hermes Agent** (the agent framework): e.g. @Nouscript_bot on Telegram for chat, with the **nouscriptvideo** skill. The skill runs video **download + transcript** and **summary from transcript** as separate API steps (`/api/v1/download_and_transcribe`, `/api/v1/summarize_from_transcript`). See `hermes_skill_nouscript_video/` for setup. |
 
 The backend (download, Whisper, Groq/Nous summary) is shared; only the entry point (web, Telegram Sumbot, or Hermes skill) differs.
 

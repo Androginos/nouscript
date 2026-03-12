@@ -6,15 +6,15 @@ Install this skill so Hermes can request video **summaries**, **transcript only*
 
 1. **Copy the folder**
 
-   Copy the contents of `hermes_skill_nouscript_video` into the Hermes skills directory as **nouscript-video**:
+   Copy the contents of `hermes_skill_nouscript_video` into the Hermes skills directory as **nouscriptvideo**:
 
    ```bash
    # Example: project at /opt/nouscript
-   mkdir -p ~/.hermes/skills/nouscript-video
-   cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscript-video/
-   cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscript-video/
-   cp /opt/nouscript/hermes_skill_nouscript_video/local_download_transcribe.py ~/.hermes/skills/nouscript-video/
-   chmod +x ~/.hermes/skills/nouscript-video/call_nouscript.py ~/.hermes/skills/nouscript-video/local_download_transcribe.py
+   mkdir -p ~/.hermes/skills/nouscriptvideo
+   cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscriptvideo/
+   cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscriptvideo/
+   cp /opt/nouscript/hermes_skill_nouscript_video/local_download_transcribe.py ~/.hermes/skills/nouscriptvideo/
+   chmod +x ~/.hermes/skills/nouscriptvideo/call_nouscript.py ~/.hermes/skills/nouscriptvideo/local_download_transcribe.py
    ```
 
    Ensure **yt-dlp** and **ffmpeg** are in PATH. For local transcription, install: `pip install openai` (in the Hermes env).
@@ -44,7 +44,7 @@ Install this skill so Hermes can request video **summaries**, **transcript only*
 - **Summary:** “Summarize this video: https://youtube.com/watch?v=...”
 - **Transcript only:** “Just the transcript for this video: …” / “Sadece transkript ver: …”
 - **Subtitles:** “Get subtitles for …” / “Altyazı al: …”
-- Or send `/nouscript-video` and then the link.
+- Or send `/nouscriptvideo` and then the link.
 - The agent loads the skill and calls the API via `call_nouscript.py`, then returns the summary, transcript, or subtitle text.
 
 ## Updating the skill on the server
@@ -53,9 +53,9 @@ When the repo’s `hermes_skill_nouscript_video/` is updated (e.g. new `transcri
 
 ```bash
 cd /opt/nouscript && git pull
-cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscript-video/
-cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscript-video/
-chmod +x ~/.hermes/skills/nouscript-video/call_nouscript.py
+cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscriptvideo/
+cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscriptvideo/
+chmod +x ~/.hermes/skills/nouscriptvideo/call_nouscript.py
 hermes gateway restart
 ```
 

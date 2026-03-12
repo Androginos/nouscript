@@ -99,16 +99,16 @@ Telegram’da @Nouscript_bot’a mesaj at → cevap gelmeli.
 ## Adım 8 — Hermes skill kurulumu
 
 ```bash
-ls ~/.hermes/skills/nouscript-video/
+ls ~/.hermes/skills/nouscriptvideo/
 ```
 
 `SKILL.md` ve `call_nouscript.py` yoksa:
 
 ```bash
-mkdir -p ~/.hermes/skills/nouscript-video
-cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscript-video/
-cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscript-video/
-chmod +x ~/.hermes/skills/nouscript-video/call_nouscript.py
+mkdir -p ~/.hermes/skills/nouscriptvideo
+cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscriptvideo/
+cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscriptvideo/
+chmod +x ~/.hermes/skills/nouscriptvideo/call_nouscript.py
 ```
 
 `~/.hermes/.env` içinde `NOUSCRIPT_API_BASE` ve `RAPIDAPI_KEY` var mı kontrol et. Yoksa ekle. Sonra:
