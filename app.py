@@ -1042,12 +1042,23 @@ def transcribe_chunk_groq(wav_bytes: bytes, offset_sec: float, language: str | N
             pass
 
 
+# Minimum audio length for local Whisper (1 sec at 16kHz); shorter chunks can cause reshape errors
+MIN_SAMPLES_LOCAL_WHISPER = 16000
+
+
 def transcribe_chunk_local(audio: np.ndarray, offset_sec: float, language: str | None = None) -> list[dict]:
     """Fallback: transcribe with local Whisper model."""
+    if audio is None or len(audio) < MIN_SAMPLES_LOCAL_WHISPER:
+        print(f"[Whisper] Skipping chunk at {offset_sec}s: audio too short (len={len(audio) if audio is not None else 0})", file=sys.stderr, flush=True)
+        return []
     opts: dict = {"fp16": False}
     if language:
         opts["language"] = language
-    result = whisper_model.transcribe(audio, **opts)
+    try:
+        result = whisper_model.transcribe(audio, **opts)
+    except Exception as e:
+        print(f"[Whisper] transcribe failed at offset {offset_sec}s (len={len(audio)}): {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+        raise
     segments = []
     for seg in result["segments"]:
         segments.append({
@@ -1320,12 +1331,22 @@ async def worker():
                         extract_audio_chunk, audio_buffer, start, CHUNK_DURATION
                     )
                     if chunk_audio is None or len(chunk_audio) == 0:
-                        break
-                    segs = await asyncio.to_thread(
-                        transcribe_chunk_local, chunk_audio, start, source_lang
-                    )
-                    del chunk_audio
-                    engine_label = "Local Whisper (fallback)"
+                        print(f"[Whisper] Chunk {i + 1}/{num_chunks} empty, skipping", file=sys.stderr, flush=True)
+                        await progress.put({
+                            "stage": "transcribing",
+                            "message": f"[{engine_label}] Chunk {i + 1}/{num_chunks} empty, skipped",
+                            "progress": round((i + 1) / num_chunks * 100),
+                        })
+                    else:
+                        try:
+                            segs = await asyncio.to_thread(
+                                transcribe_chunk_local, chunk_audio, start, source_lang
+                            )
+                        except Exception as local_exc:
+                            print(f"[Whisper] Chunk {i + 1}/{num_chunks} local failed: {local_exc}", file=sys.stderr, flush=True)
+                            segs = []
+                        del chunk_audio
+                        engine_label = "Local Whisper (fallback)"
 
                 all_segments.extend(segs or [])
                 gc.collect()
