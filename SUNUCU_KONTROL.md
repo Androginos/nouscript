@@ -4,6 +4,25 @@ Sunucuda sırayla aşağıdaki adımları uygulayın. Her adımın sonunda "Tama
 
 ---
 
+## Repo güncellendiğinde (her push sonrası)
+
+Repoda değişiklik push edildiyse sunucuda şunları çalıştır:
+
+```bash
+cd /opt/nouscript
+git pull
+# Skill (call_nouscript.py / SKILL.md) değiştiyse:
+cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscriptvideo/
+cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscriptvideo/
+chmod +x ~/.hermes/skills/nouscriptvideo/call_nouscript.py
+hermes gateway stop && sleep 2 && hermes gateway start
+# Backend (app.py) değiştiyse:
+systemctl restart uvicorn
+```
+(İkisini de yapmak güvenli; gereksiz restart zararsız.)
+
+---
+
 ## Adım 1 — Sunucuya bağlan ve projeyi güncelle
 
 ```bash

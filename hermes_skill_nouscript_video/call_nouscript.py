@@ -11,6 +11,27 @@ import urllib.error
 import urllib.request
 
 
+def _load_hermes_env():
+    """If NOUSCRIPT_API_BASE or RAPIDAPI_KEY missing, load from ~/.hermes/.env."""
+    base = os.environ.get("NOUSCRIPT_API_BASE", "").strip()
+    key = os.environ.get("RAPIDAPI_KEY", "").strip()
+    if base and key:
+        return
+    env_path = os.path.expanduser("~/.hermes/.env")
+    if not os.path.isfile(env_path):
+        return
+    with open(env_path, "r", encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                k, v = line.split("=", 1)
+                k, v = k.strip(), v.strip().strip("'\"")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+
+
 def _post(base: str, key: str, path: str, body: dict, timeout: int = 600) -> dict:
     req = urllib.request.Request(
         f"{base}{path}",
@@ -32,6 +53,7 @@ def _post_err(e: urllib.error.HTTPError) -> dict:
 
 
 def main():
+    _load_hermes_env()
     if len(sys.argv) < 3:
         print(json.dumps({"error": "Usage: call_nouscript.py <video_url> summary|subtitle|transcript [lang]"}))
         sys.exit(1)
