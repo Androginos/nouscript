@@ -867,6 +867,14 @@ def _detect_platform(url: str) -> str:
     return "youtube"
 
 
+def _normalize_youtube_url(url: str) -> str:
+    """youtu.be ve shorts linklerini canonical youtube.com/watch?v= formuna çevirir (RapidAPI uyumu)."""
+    video_id = _extract_youtube_video_id(url)
+    if not video_id:
+        return url
+    return f"https://www.youtube.com/watch?v={video_id}"
+
+
 def _is_broadcast_url(url: str) -> bool:
     """X/Twitter broadcast veya event sayfası mı?"""
     return "/i/broadcasts/" in url or "/i/events/" in url
@@ -899,6 +907,14 @@ def _get_duration_from_buffer(buffer: io.BytesIO) -> float:
 
 def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
     platform = _detect_platform(url)
+    if platform == "youtube":
+        url = _normalize_youtube_url(url)
+
+    # YouTube + X: Önce yt-dlp dene (cookies yok). 403/fail → RapidAPI
+    result = _download_audio_via_ytdlp_subprocess(url, None, platform)
+    if result is not None:
+        return result
+    print("[yt-dlp] Başarısız, RapidAPI deneniyor...")
 
     api_key = os.getenv("RAPIDAPI_KEY", "").strip()
     hosts = _rapidapi_hosts()
@@ -906,23 +922,22 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         raise RuntimeError("RAPIDAPI_KEY and RAPIDAPI_HOSTS (or RAPIDAPI_YOUTUBE_HOST) required")
 
     for host in hosts:
-        if "youtube-mp3-audio-video-downloader" in host.lower():
+        host_lower = host.lower()
+        # YouTube için sadece YouTube odaklı host'ları dene; social "Invalid Url" dönebiliyor
+        if platform == "youtube" and "social-download" in host_lower:
+            print(f"[RapidAPI] {host} YouTube için atlanıyor (social).")
+            continue
+        if "youtube-mp3-audio-video-downloader" in host_lower:
             result = _download_audio_via_rapidapi_ytmp3(url, host, api_key)
-        elif "yt-api" in host.lower():
+        elif "yt-api" in host_lower:
             result = _download_audio_via_rapidapi_ytapi(url, host, api_key)
-        elif "youtube-video-download" in host.lower():
+        elif "youtube-video-download" in host_lower:
             result = _download_audio_via_rapidapi_ytvideodl(url, host, api_key)
         else:
             result = _download_audio_via_rapidapi_social(url, platform, host)
         if result is not None:
             return result
         print(f"[RapidAPI] {host} başarısız, sonraki deneniyor...")
-
-    # X (Twitter): RapidAPI "No medias found" verirse yt-dlp ile dene
-    if platform == "twitter":
-        result = _download_audio_via_ytdlp_subprocess(url, _get_cookies_path(), platform)
-        if result is not None:
-            return result
 
     raise RuntimeError("Downloader Service Unavailable")
 

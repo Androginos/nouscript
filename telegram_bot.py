@@ -73,6 +73,9 @@ async def call_nouscript_api(url: str, mode: str) -> dict:
 
     async with httpx.AsyncClient(timeout=600) as client:
         resp = await client.post(endpoint, json=payload, headers=headers)
+        if resp.status_code >= 500:
+            body = resp.text
+            print(f"[API 5xx] status={resp.status_code} body={body[:500]}", file=sys.stdout)
         resp.raise_for_status()
         data = resp.json()
         if "error" in data:
