@@ -59,7 +59,7 @@ NOUS_REASONING_PREAMBLE = (
 )
 
 whisper_model = None
-CONCURRENT_WORKERS = 10  # allow ~10 users to process at the same time
+CONCURRENT_WORKERS = 5   # fewer concurrent jobs = less Groq 429, faster when Groq is used
 processing_queue: asyncio.Queue = asyncio.Queue(maxsize=20)  # 10 in progress + up to 20 waiting
 
 FFMPEG: str = ""
@@ -422,7 +422,9 @@ def _download_audio_via_rapidapi_ytmp3(
         print(f"[RapidAPI yt-mp3] No file URL. Keys: {list(api_data.keys())}")
         return None
 
-    # CDN indirme: timeout 150s, timeout/network hatasında 2 kez daha dene
+    # API: dosya 20-30 sn'de hazır olabilir; ilk denemeden önce kısa bekle
+    time.sleep(5)
+    # CDN indirme: timeout 150s, timeout/network hatasında tekrar dene
     print(f"[RapidAPI yt-mp3] Downloading... (API CDN)")
     headers_dl = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"}
     raw_data = None
@@ -711,7 +713,10 @@ def _download_audio_via_rapidapi_social(
         timeout=120,
     )
     if proc.returncode != 0:
-        print(f"[RapidAPI] FFmpeg error: {proc.stderr.decode(errors='ignore')[:200]}")
+        err = proc.stderr.decode(errors="ignore")[:200]
+        print(f"[RapidAPI] FFmpeg error: {err}")
+        if "Invalid data" in err or "Error opening input" in err:
+            print("[RapidAPI] social-download response may not be audio for this URL (e.g. YouTube unsupported or HTML)", file=sys.stderr, flush=True)
         return None
 
     buffer = io.BytesIO(proc.stdout)
@@ -1061,7 +1066,7 @@ def transcribe_chunk_local(audio: np.ndarray, offset_sec: float, language: str |
         result = whisper_model.transcribe(audio, **opts)
     except Exception as e:
         print(f"[Whisper] transcribe failed at offset {offset_sec}s (len={len(audio)}): {type(e).__name__}: {e}", file=sys.stderr, flush=True)
-        raise
+        return []  # skip bad chunk (e.g. reshape/tensor) instead of failing whole request
     segments = []
     for seg in result["segments"]:
         segments.append({
@@ -1316,17 +1321,33 @@ async def worker():
                 segs = None
 
                 if use_groq:
-                    try:
-                        wav_bytes = await asyncio.to_thread(
-                            _extract_chunk_wav, audio_buffer, start, CHUNK_DURATION
-                        )
-                        if wav_bytes:
-                            segs = await asyncio.to_thread(
-                                transcribe_chunk_groq, wav_bytes, start, source_lang
-                            )
-                            del wav_bytes
-                    except Exception as exc:
-                        print(f"Groq failed on chunk {i}, falling back to local: {exc}")
+                    wav_bytes = await asyncio.to_thread(
+                        _extract_chunk_wav, audio_buffer, start, CHUNK_DURATION
+                    )
+                    if wav_bytes:
+                        for groq_attempt in range(2):  # first try, then retry once after 429
+                            try:
+                                segs = await asyncio.to_thread(
+                                    transcribe_chunk_groq, wav_bytes, start, source_lang
+                                )
+                                break
+                            except Exception as exc:
+                                err_str = str(exc)
+                                # Daily quota exhausted (ASPD): do not fall back to local (avoids SEGV and hours of CPU)
+                                if "429" in err_str and ("seconds of audio per day" in err_str or "ASPD" in err_str):
+                                    print("Groq daily quota exceeded, not using local Whisper", file=sys.stderr, flush=True)
+                                    raise RuntimeError(
+                                        "Daily transcription quota exceeded (Groq limit). Try again tomorrow or upgrade at console.groq.com."
+                                    )
+                                if groq_attempt == 0 and "429" in err_str:
+                                    print(f"Groq 429 on chunk {i}, waiting 60s then retry...", file=sys.stderr, flush=True)
+                                    await asyncio.sleep(60)
+                                    continue
+                                print(f"Groq failed on chunk {i}, falling back to local: {exc}")
+                                segs = None
+                                break
+                        del wav_bytes
+                    else:
                         segs = None
 
                 if segs is None:
