@@ -1560,6 +1560,34 @@ async def api_v1_summarize_from_transcript(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+@app.post("/api/v1/subtitle_from_transcript")
+async def api_v1_subtitle_from_transcript(request: Request):
+    """
+    Hermes skill: call when transcript/segments are ready (e.g. skill did download+transcribe).
+    Body: { segments, lang? }. Returns: { srt, transcript }.
+    """
+    if not _is_rapidapi_request(request):
+        return JSONResponse({"error": "x-rapidapi-key header required"}, status_code=401)
+    rate_key = f"rapidapi:{request.headers.get('x-rapidapi-key', '')}"
+    if not _consume_request(rate_key, RATE_LIMIT_MAX_RAPIDAPI):
+        return JSONResponse({"error": f"Rate limit reached ({RATE_LIMIT_MAX_RAPIDAPI}/hour)"}, status_code=429)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+    segments = body.get("segments")
+    if not segments or not isinstance(segments, list):
+        return JSONResponse({"error": "segments (list of {start, end, text}) required"}, status_code=400)
+    lang = body.get("lang", "English")
+    try:
+        translated = await asyncio.to_thread(translate_segments_with_nous, segments, lang)
+        srt_text = format_srt(translated)
+        transcript = " ".join(seg.get("text", "") for seg in segments).strip()
+        return JSONResponse({"status": "ok", "srt": srt_text, "transcript": transcript})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @app.get("/api/remaining")
 async def api_remaining(request: Request):
     ip = request.client.host

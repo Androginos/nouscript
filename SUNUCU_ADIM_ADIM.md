@@ -45,16 +45,16 @@ Beklenen: `OK status: 200` ve özet metni. 503/500 çıkarsa pipeline sorunu var
 ## Adım 4 — Web servisi
 
 ```bash
-systemctl status uvicorn --no-pager
+systemctl status nouscript --no-pager
 ```
 
 Çalışmıyorsa (inactive):
 
 ```bash
-sudo systemctl start uvicorn
+sudo systemctl start nouscript
 ```
 
-(Servis adı farklıysa: `systemctl status nouscript` veya `ps aux | grep uvicorn` ile kontrol et.)
+(Servis adı farklıysa: `ps aux | grep uvicorn` ile process’i kontrol et.)
 
 ---
 

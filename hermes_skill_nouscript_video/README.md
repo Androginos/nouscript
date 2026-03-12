@@ -13,8 +13,11 @@ Install this skill so Hermes can request video summaries or subtitles.
    mkdir -p ~/.hermes/skills/nouscript-video
    cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscript-video/
    cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscript-video/
-   chmod +x ~/.hermes/skills/nouscript-video/call_nouscript.py
+   cp /opt/nouscript/hermes_skill_nouscript_video/local_download_transcribe.py ~/.hermes/skills/nouscript-video/
+   chmod +x ~/.hermes/skills/nouscript-video/call_nouscript.py ~/.hermes/skills/nouscript-video/local_download_transcribe.py
    ```
+
+   Ensure **yt-dlp** and **ffmpeg** are in PATH. For local transcription, install: `pip install openai` (in the Hermes env).
 
 2. **Environment variables**
 
@@ -23,9 +26,10 @@ Install this skill so Hermes can request video summaries or subtitles.
    ```env
    NOUSCRIPT_API_BASE=https://nouscript.com
    RAPIDAPI_KEY=your_rapidapi_key_here
+   GROQ_API_KEY=your_groq_key_here
    ```
 
-   (If NouScript runs on the same server, reuse the existing `RAPIDAPI_KEY`.)
+   `GROQ_API_KEY` is used when Hermes does download+transcribe locally. If missing, the skill falls back to NouScript API for those steps.
 
 3. **Restart Hermes gateway**
 
@@ -46,7 +50,7 @@ Install this skill so Hermes can request video summaries or subtitles.
 - For **summary**, the skill triggers two API steps: first **download + transcribe**, then **summary from transcript**. For **subtitles**, a single full-pipeline call is used.
 - Long videos may take 1–5 minutes; the agent will wait.
 
-## Confirmation: Video download and transcript via Hermes skill
+## Who does what (Hermes does download + transcript)
 
 **Download and transcription are triggered by the Hermes agent skill’s API calls.**
 
