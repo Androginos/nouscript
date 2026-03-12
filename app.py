@@ -1057,6 +1057,43 @@ def transcribe_chunk_local(audio: np.ndarray, offset_sec: float, language: str |
     return segments
 
 
+def download_and_transcribe_sync(url: str, source_lang: str | None = None) -> tuple[str, list[dict], dict]:
+    """
+    İndirme + transkripsiyon (sync). Hermes skill bu adımı ayrı çağırabilir.
+    Returns: (full_transcript, segments, video_meta)
+    """
+    audio_buffer, duration, video_meta = download_audio(url)
+    num_chunks = max(1, math.ceil(duration / CHUNK_DURATION))
+    use_groq = _groq_client() is not None
+    all_segments: list[dict] = []
+
+    try:
+        for i in range(num_chunks):
+            start = i * CHUNK_DURATION
+            segs = None
+            if use_groq:
+                try:
+                    wav_bytes = _extract_chunk_wav(audio_buffer, start, CHUNK_DURATION)
+                    if wav_bytes:
+                        segs = transcribe_chunk_groq(wav_bytes, start, source_lang)
+                except Exception:
+                    segs = None
+            if segs is None:
+                chunk_audio = extract_audio_chunk(audio_buffer, start, CHUNK_DURATION)
+                if chunk_audio is None or len(chunk_audio) == 0:
+                    break
+                segs = transcribe_chunk_local(chunk_audio, start, source_lang)
+            all_segments.extend(segs or [])
+            gc.collect()
+    finally:
+        audio_buffer.close()
+
+    if not all_segments:
+        raise RuntimeError("Transcription returned empty - does the video have audio?")
+    full_transcript = " ".join(seg["text"] for seg in all_segments)
+    return full_transcript, all_segments, video_meta
+
+
 # -- Nous API: Summary -------------------------------------------------------
 
 
@@ -1439,6 +1476,86 @@ async def api_v1_summarize(request: Request):
                     status_code=503,
                 )
             return JSONResponse({"error": message}, status_code=500)
+
+
+@app.post("/api/v1/download_and_transcribe")
+async def api_v1_download_and_transcribe(request: Request):
+    """
+    Hermes skill: Önce bu endpoint ile indir + transkript et.
+    Body: { url, source_lang? }. Returns: { transcript, segments, meta }.
+    """
+    if not _is_rapidapi_request(request):
+        return JSONResponse({"error": "x-rapidapi-key header required"}, status_code=401)
+    rate_key = f"rapidapi:{request.headers.get('x-rapidapi-key', '')}"
+    if not _consume_request(rate_key, RATE_LIMIT_MAX_RAPIDAPI):
+        return JSONResponse({"error": f"Rate limit reached ({RATE_LIMIT_MAX_RAPIDAPI}/hour)"}, status_code=429)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+    url = (body.get("url") or "").strip()
+    url = re.sub(r"[\u200b-\u200d\ufeff]", "", url)
+    if not url or not re.search(r"youtube\.com|youtu\.be|twitter\.com|x\.com", url, re.I):
+        return JSONResponse({"error": "Valid YouTube or X (Twitter) URL required"}, status_code=400)
+    if "youtube.com" in url or "youtu.be" in url:
+        url = _normalize_youtube_url(url)
+        if not _extract_youtube_video_id(url):
+            return JSONResponse({"error": "Could not parse YouTube video ID from URL"}, status_code=400)
+    sl = body.get("source_lang", "Auto")
+    source_lang = LANG_CODE_MAP.get(sl) if sl in LANG_CODE_MAP else (sl if isinstance(sl, str) and len(sl) == 2 else None)
+    try:
+        transcript, segments, meta = await asyncio.to_thread(
+            download_and_transcribe_sync, url, source_lang
+        )
+        return JSONResponse({
+            "status": "ok",
+            "transcript": transcript,
+            "segments": segments,
+            "meta": meta,
+        })
+    except RuntimeError as e:
+        msg = str(e)
+        if "download" in msg.lower() or "unavailable" in msg.lower():
+            return JSONResponse(
+                {"error": "Could not download video. Try another link or try again later."},
+                status_code=503,
+            )
+        return JSONResponse({"error": msg}, status_code=500)
+    except Exception as e:
+        msg = str(e)
+        if "download" in msg.lower() or "unavailable" in msg.lower():
+            return JSONResponse(
+                {"error": "Could not download video. Try another link or try again later."},
+                status_code=503,
+            )
+        return JSONResponse({"error": msg}, status_code=500)
+
+
+@app.post("/api/v1/summarize_from_transcript")
+async def api_v1_summarize_from_transcript(request: Request):
+    """
+    Hermes skill: Transkript hazır olduktan sonra özet için.
+    Body: { transcript, lang?, meta? }. Returns: { summary }.
+    """
+    if not _is_rapidapi_request(request):
+        return JSONResponse({"error": "x-rapidapi-key header required"}, status_code=401)
+    rate_key = f"rapidapi:{request.headers.get('x-rapidapi-key', '')}"
+    if not _consume_request(rate_key, RATE_LIMIT_MAX_RAPIDAPI):
+        return JSONResponse({"error": f"Rate limit reached ({RATE_LIMIT_MAX_RAPIDAPI}/hour)"}, status_code=429)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+    transcript = (body.get("transcript") or "").strip()
+    if not transcript:
+        return JSONResponse({"error": "transcript required"}, status_code=400)
+    lang = body.get("lang", "English")
+    meta = body.get("meta") or {}
+    try:
+        summary = await asyncio.to_thread(summarize_with_nous, transcript, lang, meta)
+        return JSONResponse({"status": "ok", "summary": summary})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/api/remaining")

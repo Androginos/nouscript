@@ -43,17 +43,19 @@ Hermes’e video özeti/altyazı aldırtmak için bu skill’i kurun.
 
 ## Not
 
-- Çözümleme (indirme, transkripsiyon, özet) **NouScript API** tarafında yapılır; Hermes sadece isteği yollar ve sonucu iletir.
-- Uzun videolarda API 1–5 dakika sürebilir; agent bekleyecektir.
+- **Özet (summary)** için skill iki API adımını tetikler: önce **indirme + transkript**, sonra **transkriptten özet**. Altyazı (subtitle) için tek çağrı (tam pipeline) kullanılır.
+- Uzun videolarda 1–5 dakika sürebilir; agent bekleyecektir.
 
-## Teyit: Video indirme nerede yapılıyor?
+## Teyit: Video indirme ve transcript Hermes skill ile
 
-**Video indirme Hermes agent veya skill tarafında yapılmaz.** Akış:
+**İndirme ve transkripsiyon, Hermes agent skill’in tetiklediği API adımlarıyla yapılır.**
 
 1. Kullanıcı Telegram’da @Nouscript_bot (Hermes)’e video linki + “özet çıkar” der.
 2. Hermes bu skill’i kullanır; `call_nouscript.py` çalışır.
-3. `call_nouscript.py` **NouScript API**’ye `POST /api/v1/summarize` (url, mode) gönderir.
-4. **İndirme, transkripsiyon ve özet** tamamen **NouScript API (app.py)** tarafında yapılır (yt-dlp / RapidAPI, Whisper, Groq).
-5. API sonucu (summary/subtitle JSON) skill’e döner; Hermes kullanıcıya metni iletir.
+3. **Özet modunda** skill sırayla şu iki endpoint’i çağırır:
+   - **1) `POST /api/v1/download_and_transcribe`** — Video indirme (yt-dlp / RapidAPI) + ses transkripsiyonu (Whisper). Sonuç: transcript + meta.
+   - **2) `POST /api/v1/summarize_from_transcript`** — Transkript metninden özet (Groq/Nous). Sonuç: summary.
+4. **Altyazı modunda** skill tek çağrı yapar: `POST /api/v1/summarize` (mode=subtitle); indirme ve transkript API’de yapılır.
+5. API sonucu skill’e döner; Hermes kullanıcıya metni iletir.
 
-Yani Hermes skill yalnızca “istemci”: isteği API’ye iletir, cevabı kullanıcıya gösterir. Web sitesinden (nouscript.com) veya Telegram Sumbot’tan aynı linkle test ettiğinde aynı backend kullanılır.
+Yani **video indirme ve transcript**, Hermes skill’in açıkça çağırdığı ilk adım (`download_and_transcribe`) ile yapılır; özet adımı ayrı bir API çağrısıdır. Web (nouscript.com) ve Telegram Sumbot ise tek endpoint (`/api/v1/summarize`) ile tam pipeline kullanmaya devam eder.

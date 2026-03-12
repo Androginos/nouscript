@@ -32,8 +32,8 @@ Summarize a video or get subtitles by calling the NouScript API. Use when the us
 2. **Ask what the user wants**: summary (text) or subtitles (text). Default to summary if unclear.
 
 3. **Call the API** using the helper script (so the agent does not embed the API key in chat). Use the full path to the script. Replace `<VIDEO_URL>` with the actual URL (keep it in quotes).
-   - Summary: `python3 ~/.hermes/skills/nouscript-video/call_nouscript.py "<VIDEO_URL>" summary`
-   - Subtitles: `python3 ~/.hermes/skills/nouscript-video/call_nouscript.py "<VIDEO_URL>" subtitle`
+   - **Summary:** The script first triggers **download and transcript** (`/api/v1/download_and_transcribe`), then **summary from transcript** (`/api/v1/summarize_from_transcript`). Run: `python3 ~/.hermes/skills/nouscript-video/call_nouscript.py "<VIDEO_URL>" summary`
+   - **Subtitles:** Single full pipeline call. Run: `python3 ~/.hermes/skills/nouscript-video/call_nouscript.py "<VIDEO_URL>" subtitle`
    If the skill was installed in a different path, use that path instead of `~/.hermes/skills/nouscript-video/`.
 
 4. **Interpret the result**:
