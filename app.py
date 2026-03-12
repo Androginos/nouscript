@@ -59,7 +59,8 @@ NOUS_REASONING_PREAMBLE = (
 )
 
 whisper_model = None
-processing_queue: asyncio.Queue = asyncio.Queue(maxsize=1)
+CONCURRENT_WORKERS = 10  # allow ~10 users to process at the same time
+processing_queue: asyncio.Queue = asyncio.Queue(maxsize=20)  # 10 in progress + up to 20 waiting
 
 FFMPEG: str = ""
 FFPROBE: str = ""
@@ -1388,9 +1389,10 @@ async def lifespan(app: FastAPI):
     global whisper_model
     _resolve_tools()
     whisper_model = whisper.load_model(WHISPER_MODEL_SIZE)
-    task = asyncio.create_task(worker())
+    workers = [asyncio.create_task(worker()) for _ in range(CONCURRENT_WORKERS)]
     yield
-    task.cancel()
+    for t in workers:
+        t.cancel()
 
 
 app = FastAPI(lifespan=lifespan)

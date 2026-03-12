@@ -191,7 +191,11 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             except RuntimeError as e:
                 msg = str(e)
                 print(f"[Telegram bot] API error: {msg}", file=sys.stdout)
-                if "download" in msg.lower() or "unavailable" in msg.lower() or "503" in msg:
+                if "busy" in msg.lower():
+                    await query.edit_message_text(
+                        "Server is busy (another video is being processed). Please try again in 1–2 minutes."
+                    )
+                elif "download" in msg.lower() or "unavailable" in msg.lower() or "503" in msg:
                     await query.edit_message_text(
                         "Could not download video. Try another link or try again later."
                     )
