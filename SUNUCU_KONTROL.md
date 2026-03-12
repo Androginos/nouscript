@@ -131,10 +131,30 @@ ls -la ~/.hermes/skills/nouscript-video/
 mkdir -p ~/.hermes/skills/nouscript-video
 cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscript-video/
 cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscript-video/
+# İsteğe bağlı: local download+transcribe için
+[ -f /opt/nouscript/hermes_skill_nouscript_video/local_download_transcribe.py ] && cp /opt/nouscript/hermes_skill_nouscript_video/local_download_transcribe.py ~/.hermes/skills/nouscript-video/ && chmod +x ~/.hermes/skills/nouscript-video/local_download_transcribe.py
 chmod +x ~/.hermes/skills/nouscript-video/call_nouscript.py
 ```
 
 `~/.hermes/.env` içinde `NOUSCRIPT_API_BASE` ve `RAPIDAPI_KEY` tanımlı olmalı (Adım 2’de Hermes .env’i ayrı kontrol edin). Sonra: `hermes gateway restart`.
+
+---
+
+## Adım 8b — Hermes skill güncelleme (skill seti değiştiğinde)
+
+Repoda `hermes_skill_nouscript_video/` güncellendiğinde (yeni modlar: transcript-only, yetkinlik metni vb.) sunucudaki skill’i güncellemek için:
+
+```bash
+cd /opt/nouscript
+git pull
+cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscript-video/
+cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscript-video/
+chmod +x ~/.hermes/skills/nouscript-video/call_nouscript.py
+[ -f /opt/nouscript/hermes_skill_nouscript_video/local_download_transcribe.py ] && cp /opt/nouscript/hermes_skill_nouscript_video/local_download_transcribe.py ~/.hermes/skills/nouscript-video/ && chmod +x ~/.hermes/skills/nouscript-video/local_download_transcribe.py
+hermes gateway restart
+```
+
+**Kontrol:** `~/.hermes/skills/nouscript-video/` altında güncel `SKILL.md` ve `call_nouscript.py` olmalı. Telegram’da @Nouscript_bot ile “bu videonun sadece transkriptini ver” deneyerek transcript modunu test edebilirsiniz.
 
 ---
 
@@ -150,5 +170,6 @@ chmod +x ~/.hermes/skills/nouscript-video/call_nouscript.py
 | 6 | Sumbot | `systemctl status nouscript-telegram-bot` + Telegram | /start, link → cevap |
 | 7 | Hermes | `hermes gateway status` + Telegram @Nouscript_bot | Sohbet cevabı |
 | 8 | Hermes skill | `ls ~/.hermes/skills/nouscript-video/` | SKILL.md, call_nouscript.py |
+| 8b | Skill güncelleme | `git pull` + cp skill dosyaları + `hermes gateway restart` | Güncel transcript/summary/subtitle modları |
 
 Tüm adımlar tamamlandığında sunucu ve tüm özellikler güncel ve kontrol edilmiş olur.

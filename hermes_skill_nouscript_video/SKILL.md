@@ -1,22 +1,33 @@
 ---
 name: nouscript-video
-description: Summarize or get subtitles for a YouTube or X video via NouScript API
-version: 1.0.0
+description: Summarize, get transcript, or get subtitles for a YouTube or X video via NouScript API
+version: 1.1.0
 platforms: [linux, macos]
 metadata:
   hermes:
-    tags: [video, summary, youtube, transcript]
+    tags: [video, summary, youtube, transcript, subtitle]
     category: productivity
 ---
 
 # NouScript Video Summary
 
-Summarize a video or get subtitles by calling the NouScript API. All steps (download, transcribe, summary/subtitle) run on the API. Use when the user shares a YouTube or X link and wants a summary or subtitle file.
+Summarize a video, get the full transcript, or get subtitles by calling the NouScript API. All steps (download, transcribe, summary/subtitle) run on the API. Use when the user shares a YouTube or X link and wants a summary, transcript only, or subtitle file.
+
+## Agent yetkinlikleri (capabilities)
+
+Bu skill ile Hermes agent şunları **tetikleyebilir** (işi API’de yürütür):
+
+- **Video indirme** — Linkten ses/video indirme (yt-dlp / RapidAPI).
+- **Transkripsiyon** — Sesi metne çevirme (ses → metin); özet veya altyazı olmadan sadece transkript de istenebilir.
+- **Özetleme** — Transkriptten yapılandırılmış özet (Main Topic, Key Points, References, Conclusion).
+- **Altyazı** — Çevrilmiş veya ham altyazı (SRT).
+
+Kullanıcı “sadece transkript ver”, “metnini çıkar”, “özetle”, “altyazı al” gibi taleplerde bu yetkinlikler kullanılır.
 
 ## When to Use
 
-- User sends a YouTube link (youtube.com, youtu.be) or X/Twitter link (x.com, twitter.com) and asks for a summary or subtitles.
-- User says "summarize this video", "get subtitles for this", "özet çıkar", "altyazı al" with a link.
+- User sends a YouTube link (youtube.com, youtu.be) or X/Twitter link (x.com, twitter.com) and asks for a **summary**, **transcript only**, or **subtitles**.
+- User says "summarize this video", "get subtitles for this", "just the transcript", "özet çıkar", "altyazı al", "sadece transkript / metin" with a link.
 
 ## Prerequisites
 
@@ -29,15 +40,16 @@ Summarize a video or get subtitles by calling the NouScript API. All steps (down
 
 1. **Get the video URL** from the user's message. If missing, ask for it. Validate that it looks like a YouTube or X link.
 
-2. **Ask what the user wants**: summary (text) or subtitles (text). Default to summary if unclear. Optionally ask for output language (e.g. English, Turkish).
+2. **Ask what the user wants**: summary (text), transcript only (raw text), or subtitles (text). Default to summary if unclear. Optionally ask for output language (e.g. English, Turkish).
 
 3. **Run the skill script** (so the agent does not embed API keys in chat). Replace `<VIDEO_URL>` with the actual URL in quotes. Optional third argument is language (e.g. `English`).
    - **Summary:** `python3 ~/.hermes/skills/nouscript-video/call_nouscript.py "<VIDEO_URL>" summary [lang]`
+   - **Transcript only (sadece transkript):** `python3 ~/.hermes/skills/nouscript-video/call_nouscript.py "<VIDEO_URL>" transcript`
    - **Subtitles:** `python3 ~/.hermes/skills/nouscript-video/call_nouscript.py "<VIDEO_URL>" subtitle [lang]`
    If the skill was installed in a different path, use that path instead of `~/.hermes/skills/nouscript-video/`.
 
 4. **Interpret the result**:
-   - If the script prints JSON with `summary` or `subtitle`/`srt`, show that text to the user. For long output, offer to save to a file.
+   - If the script prints JSON with `summary`, `transcript`, or `subtitle`/`srt`, show that text to the user. For long output (especially transcript), offer to save to a file.
    - If the script prints an error (e.g. "Could not download video"), relay that to the user and suggest another link or try again later.
 
 5. **Optional**: If the user asked for a file, use `write_file` to save the summary or subtitle content and tell the user where it is.
@@ -50,5 +62,5 @@ Summarize a video or get subtitles by calling the NouScript API. All steps (down
 
 ## Verification
 
-- User receives the summary or subtitle text (or a clear error message).
+- User receives the summary, transcript, or subtitle text (or a clear error message).
 - No API keys or secrets appear in the chat.

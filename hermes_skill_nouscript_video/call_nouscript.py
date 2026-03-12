@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Hermes skill: all steps via NouScript API (download, transcribe, summary/subtitle).
-Usage: python3 call_nouscript.py "<video_url>" [summary|subtitle] [lang]
+Hermes skill: all steps via NouScript API (download, transcribe, summary/subtitle/transcript-only).
+Usage: python3 call_nouscript.py "<video_url>" [summary|subtitle|transcript] [lang]
 Reads NOUSCRIPT_API_BASE and RAPIDAPI_KEY from environment.
 """
 import json
@@ -33,11 +33,11 @@ def _post_err(e: urllib.error.HTTPError) -> dict:
 
 def main():
     if len(sys.argv) < 3:
-        print(json.dumps({"error": "Usage: call_nouscript.py <video_url> summary|subtitle [lang]"}))
+        print(json.dumps({"error": "Usage: call_nouscript.py <video_url> summary|subtitle|transcript [lang]"}))
         sys.exit(1)
     url = sys.argv[1].strip()
     mode = sys.argv[2].strip().lower()
-    if mode not in ("summary", "subtitle"):
+    if mode not in ("summary", "subtitle", "transcript"):
         mode = "summary"
     lang = sys.argv[3].strip() if len(sys.argv) > 3 else "English"
     base = os.environ.get("NOUSCRIPT_API_BASE", "").rstrip("/")
@@ -75,6 +75,26 @@ def main():
             print(json.dumps({"error": step2.get("error", "summarize_from_transcript failed")}, ensure_ascii=False))
             sys.exit(1)
         out = {"status": "ok", "summary": step2.get("summary", ""), "transcript": transcript}
+        print(json.dumps(out, ensure_ascii=False))
+    elif mode == "transcript":
+        # Transcript only: download + transcribe, no summary/subtitle
+        try:
+            step1 = _post(base, key, "/api/v1/download_and_transcribe", {
+                "url": url,
+                "source_lang": "Auto",
+            })
+        except urllib.error.HTTPError as e:
+            print(json.dumps(_post_err(e), ensure_ascii=False))
+            sys.exit(1)
+        if step1.get("error"):
+            print(json.dumps({"error": step1.get("error", "download_and_transcribe failed")}, ensure_ascii=False))
+            sys.exit(1)
+        out = {
+            "status": "ok",
+            "transcript": step1.get("transcript", ""),
+            "segments": step1.get("segments", []),
+            "meta": step1.get("meta") or {},
+        }
         print(json.dumps(out, ensure_ascii=False))
     else:
         # Subtitle: single API call (full pipeline on API)

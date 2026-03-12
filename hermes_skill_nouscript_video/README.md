@@ -1,6 +1,6 @@
 # Hermes Skill: NouScript Video Summary
 
-Install this skill so Hermes can request video summaries or subtitles.
+Install this skill so Hermes can request video **summaries**, **transcript only**, or **subtitles**.
 
 ## Setup (on server)
 
@@ -41,13 +41,31 @@ Install this skill so Hermes can request video summaries or subtitles.
 ## Usage
 
 - In **Telegram**, talk to **@Nouscript_bot** (Hermes).
-- Example: “Summarize this video: https://youtube.com/watch?v=...”
+- **Summary:** “Summarize this video: https://youtube.com/watch?v=...”
+- **Transcript only:** “Just the transcript for this video: …” / “Sadece transkript ver: …”
+- **Subtitles:** “Get subtitles for …” / “Altyazı al: …”
 - Or send `/nouscript-video` and then the link.
-- The agent loads the skill and calls the API via `call_nouscript.py`, then returns the summary or subtitle text.
+- The agent loads the skill and calls the API via `call_nouscript.py`, then returns the summary, transcript, or subtitle text.
+
+## Updating the skill on the server
+
+When the repo’s `hermes_skill_nouscript_video/` is updated (e.g. new `transcript` mode, capability text):
+
+```bash
+cd /opt/nouscript && git pull
+cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscript-video/
+cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscript-video/
+chmod +x ~/.hermes/skills/nouscript-video/call_nouscript.py
+hermes gateway restart
+```
+
+See **SUNUCU_KONTROL.md** → Adım 8b for the full checklist.
 
 ## Notes
 
-- For **summary**, the skill triggers two API steps: first **download + transcribe**, then **summary from transcript**. For **subtitles**, a single full-pipeline call is used.
+- **Summary:** two API steps — `download_and_transcribe`, then `summarize_from_transcript`.
+- **Transcript only:** one API step — `download_and_transcribe`; returns transcript (and segments) without summary or subtitle.
+- **Subtitles:** single full-pipeline call (`/api/v1/summarize`, mode=subtitle).
 - Long videos may take 1–5 minutes; the agent will wait.
 
 ## Who does what (Hermes does download + transcript)
