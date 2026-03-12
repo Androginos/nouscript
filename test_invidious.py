@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Invidious tam test: API + ses formatı + stream indirme.
-Sunucuda: cd /opt/nouscript && python test_invidious.py
+Invidious full test: API + audio format + stream download.
+On server: cd /opt/nouscript && python test_invidious.py
 """
 import os
 import sys
@@ -19,7 +19,7 @@ def main():
     try:
         import httpx
     except ImportError:
-        print("HATA: pip install httpx")
+        print("ERROR: pip install httpx")
         return 1
 
     urls = _invidious_urls()
@@ -38,10 +38,10 @@ def main():
             with httpx.Client(timeout=15.0) as client:
                 r = client.get(api_url)
         except Exception as e:
-            print(f"  [1] API bağlantı HATASI: {e}")
+            print(f"  [1] API connection error: {e}")
             continue
 
-        print(f"  [1] API durum: {r.status_code}")
+        print(f"  [1] API status: {r.status_code}")
 
         if r.status_code != 200:
             print(f"  [1] Yanıt: {r.text[:200]}...")
@@ -50,7 +50,7 @@ def main():
         try:
             data = r.json()
         except Exception as e:
-            print(f"  [1] JSON parse HATASI: {e}")
+            print(f"  [1] JSON parse error: {e}")
             continue
 
         if data.get("error"):
@@ -60,14 +60,14 @@ def main():
         title = data.get("title", "?")
         print(f"  [1] OK - Video: {title[:50]}...")
 
-        # 2. Ses formatı var mı?
+        # 2. Audio format present?
         formats = data.get("adaptiveFormats") or data.get("formatStreams") or []
         audio_formats = [
             f for f in formats
             if isinstance(f, dict) and (f.get("type") or "").startswith("audio/")
         ]
         if not audio_formats:
-            print(f"  [2] HATA: Ses formatı yok (toplam {len(formats)} format)")
+            print(f"  [2] ERROR: No audio format (total {len(formats)} formats)")
             continue
 
         def _bitrate_val(f):
@@ -85,27 +85,27 @@ def main():
         if not audio_url.startswith(("http://", "https://")):
             audio_url = base + "/" + audio_url.lstrip("/")
 
-        print(f"  [2] OK - Ses formatı bulundu (bitrate: {best.get('bitrate')})")
+        print(f"  [2] OK - Audio format found (bitrate: {best.get('bitrate')})")
 
         # 3. Ses stream indir
         try:
             with httpx.Client(timeout=30.0, follow_redirects=True) as client:
                 r2 = client.get(audio_url)
         except Exception as e:
-            print(f"  [3] Stream indirme HATASI: {e}")
+            print(f"  [3] Stream download error: {e}")
             continue
 
         if r2.status_code != 200:
-            print(f"  [3] HATA: Stream durum {r2.status_code}")
+            print(f"  [3] ERROR: Stream status {r2.status_code}")
             continue
 
         size = len(r2.content)
-        print(f"  [3] OK - {size:,} byte indirildi")
+        print(f"  [3] OK - {size:,} bytes downloaded")
 
-        print(f"\n  *** {base} TAM ÇALIŞIYOR ***")
+        print(f"\n  *** {base} FULLY WORKING ***")
         return 0
 
-    print("\n*** Hiçbir instance tam çalışmıyor ***")
+    print("\n*** No instance fully working ***")
     return 1
 
 if __name__ == "__main__":

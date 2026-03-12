@@ -31,7 +31,7 @@ from openai import OpenAI
 
 RATE_LIMIT_MAX = 10
 RATE_LIMIT_MAX_UNVERIFIED = 5
-RATE_LIMIT_MAX_RAPIDAPI = 100  # RapidAPI kullanıcıları için
+RATE_LIMIT_MAX_RAPIDAPI = 100  # per RapidAPI key
 RATE_LIMIT_WINDOW = 3600  # 1 hour
 rate_limit_store: dict[str, list[float]] = {}  # ip/key -> [timestamps]
 
@@ -155,7 +155,7 @@ def _consume_request(ip: str, limit: int = RATE_LIMIT_MAX) -> bool:
 
 
 def _is_rapidapi_request(request: Request) -> bool:
-    """RapidAPI isteği mi? x-rapidapi-key header + optional proxy secret."""
+    """Whether request is RapidAPI (x-rapidapi-key header + optional proxy secret)."""
     key = request.headers.get("x-rapidapi-key", "").strip()
     if not key:
         return False
@@ -166,7 +166,7 @@ def _is_rapidapi_request(request: Request) -> bool:
 
 
 def _get_rate_limit_key(request: Request) -> tuple[str, int]:
-    """(rate_limit_key, limit) döner. RapidAPI ise key ile, değilse IP ile."""
+    """Returns (rate_limit_key, limit). Uses API key for RapidAPI, IP otherwise."""
     if _is_rapidapi_request(request):
         key = request.headers.get("x-rapidapi-key", "").strip()
         return f"rapidapi:{key}", RATE_LIMIT_MAX_RAPIDAPI
@@ -206,7 +206,7 @@ def _get_cookies_path() -> str | None:
 def _download_audio_via_ytdlp_subprocess(
     url: str, cookies_path: str | None, platform: str
 ) -> tuple[io.BytesIO, float, dict] | None:
-    """yt-dlp CLI ile ses indir (Python API başarısız olursa fallback)."""
+    """Download audio via yt-dlp CLI (fallback when Python API fails)."""
     import shutil as _shutil
     ytdlp_cmd = _shutil.which("yt-dlp") or _shutil.which("yt_dlp")
     if not ytdlp_cmd:
@@ -582,7 +582,7 @@ def _download_audio_via_rapidapi_social(
     url: str, platform: str, host: str | None = None
 ) -> tuple[io.BytesIO, float, dict] | None:
     """
-    RapidAPI Social Download All In One ile ses indir. YouTube, X, TikTok vb.
+    Download audio via RapidAPI Social Download All In One. YouTube, X, TikTok, etc.
     POST /v1/social/autolink, {"url": "..."}
     """
     api_key = os.getenv("RAPIDAPI_KEY", "").strip()
@@ -658,7 +658,7 @@ def _download_audio_via_rapidapi_social(
         print(f"[RapidAPI social] No download link. status={api_data.get('status')} message={msg!r} keys={list(api_data.keys())}")
         return None
 
-    # Ses dosyasını stream ile belleğe al (disk yok)
+    # Stream audio into memory (no disk)
     # Referer platforma göre
     if platform == "tiktok":
         ref = "https://www.tiktok.com/"
@@ -736,7 +736,7 @@ def _download_audio_via_rapidapi_social(
 
 
 def _extract_youtube_video_id(url: str) -> str | None:
-    """YouTube URL'den video_id çıkar. watch?v=, youtu.be/, shorts/ desteklenir."""
+    """Extract video_id from YouTube URL. Supports watch?v=, youtu.be/, shorts/."""
     if not url or ("youtube.com" not in url and "youtu.be" not in url):
         return None
     # youtu.be/VIDEO_ID
@@ -759,7 +759,7 @@ def _extract_youtube_video_id(url: str) -> str | None:
 
 
 def _download_audio_via_invidious(video_id: str) -> tuple[io.BytesIO, float, dict] | None:
-    """Invidious API ile ses indir. Birden fazla URL denenir. Başarısızsa None döner."""
+    """Download audio via Invidious API. Tries multiple base URLs. Returns None on failure."""
     urls = _invidious_urls()
     data = None
     base_used = None
@@ -795,7 +795,7 @@ def _download_audio_via_invidious(video_id: str) -> tuple[io.BytesIO, float, dic
         print(f"[Invidious] {base_used} No audio format found (formats: {len(formats)})")
         return None
 
-    # En yüksek bitrate'li ses formatını seç (bitrate string veya int olabilir)
+    # Pick highest bitrate audio format (bitrate may be string or int)
     def _bitrate_val(f: dict) -> int:
         try:
             b = f.get("bitrate") or 0
@@ -811,7 +811,7 @@ def _download_audio_via_invidious(video_id: str) -> tuple[io.BytesIO, float, dic
     if not audio_url.startswith(("http://", "https://")):
         audio_url = (base_used.rstrip("/") + "/" + audio_url.lstrip("/"))
 
-    # Ses verisini stream et (in-memory)
+    # Stream audio data (in-memory)
     try:
         with httpx.Client(timeout=120.0, follow_redirects=True) as client:
             r = client.get(audio_url)
@@ -868,7 +868,7 @@ def _detect_platform(url: str) -> str:
 
 
 def _normalize_youtube_url(url: str) -> str:
-    """youtu.be ve shorts linklerini canonical youtube.com/watch?v= formuna çevirir (RapidAPI uyumu)."""
+    """Convert youtu.be and shorts links to canonical youtube.com/watch?v= (RapidAPI compatibility)."""
     video_id = _extract_youtube_video_id(url)
     if not video_id:
         return url
@@ -876,12 +876,12 @@ def _normalize_youtube_url(url: str) -> str:
 
 
 def _is_broadcast_url(url: str) -> bool:
-    """X/Twitter broadcast veya event sayfası mı?"""
+    """Whether URL is an X/Twitter broadcast or events page."""
     return "/i/broadcasts/" in url or "/i/events/" in url
 
 
 def _get_duration_from_buffer(buffer: io.BytesIO) -> float:
-    """ffprobe ile buffer'daki ses süresini al (duration=0 için fallback)."""
+    """Get audio duration from buffer via ffprobe (fallback when duration=0)."""
     buffer.seek(0)
     data = buffer.read()
     buffer.seek(0)
@@ -910,11 +910,11 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
     if platform == "youtube":
         url = _normalize_youtube_url(url)
 
-    # YouTube + X: Önce yt-dlp dene (cookies yok). 403/fail → RapidAPI
+    # YouTube + X: try yt-dlp first (no cookies). 403/fail -> RapidAPI
     result = _download_audio_via_ytdlp_subprocess(url, None, platform)
     if result is not None:
         return result
-    print("[yt-dlp] Başarısız, RapidAPI deneniyor...")
+    print("[yt-dlp] Failed, trying RapidAPI...")
 
     api_key = os.getenv("RAPIDAPI_KEY", "").strip()
     hosts = _rapidapi_hosts()
@@ -925,7 +925,7 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
         host_lower = host.lower()
         # YouTube için sadece YouTube odaklı host'ları dene; social "Invalid Url" dönebiliyor
         if platform == "youtube" and "social-download" in host_lower:
-            print(f"[RapidAPI] {host} YouTube için atlanıyor (social).")
+            print(f"[RapidAPI] {host} skipping for YouTube (social).")
             continue
         if "youtube-mp3-audio-video-downloader" in host_lower:
             result = _download_audio_via_rapidapi_ytmp3(url, host, api_key)
@@ -937,7 +937,7 @@ def download_audio(url: str) -> tuple[io.BytesIO, float, dict]:
             result = _download_audio_via_rapidapi_social(url, platform, host)
         if result is not None:
             return result
-        print(f"[RapidAPI] {host} başarısız, sonraki deneniyor...")
+        print(f"[RapidAPI] {host} failed, trying next...")
 
     raise RuntimeError("Downloader Service Unavailable")
 
@@ -1059,7 +1059,7 @@ def transcribe_chunk_local(audio: np.ndarray, offset_sec: float, language: str |
 
 def download_and_transcribe_sync(url: str, source_lang: str | None = None) -> tuple[str, list[dict], dict]:
     """
-    İndirme + transkripsiyon (sync). Hermes skill bu adımı ayrı çağırabilir.
+    Download + transcribe (sync). Hermes skill can call this step separately.
     Returns: (full_transcript, segments, video_meta)
     """
     audio_buffer, duration, video_meta = download_audio(url)
@@ -1120,30 +1120,30 @@ def summarize_with_nous(transcript: str, lang: str, meta: dict | None = None) ->
                 "role": "system",
                 "content": (
                     f"{NOUS_REASONING_PREAMBLE}\n\n"
-                    f"You are an expert video content analyst. "
-                    f"First, determine the genre/theme of the video from the metadata "
-                    f"and transcript (e.g. gaming stream, educational tutorial, tech review, "
-                    f"podcast, music, news, vlog, comedy, documentary, etc.). "
-                    f"Then tailor your entire analysis to that context — use the appropriate "
-                    f"terminology, perspective, and evaluation criteria for that genre.\n\n"
-                    f"For example: a gaming stream should be analyzed in terms of gameplay, "
-                    f"strategy, highlights, and entertainment value; an educational video "
-                    f"should focus on concepts taught, learning outcomes, and clarity; "
-                    f"a tech review should cover specs, pros/cons, and verdict.\n\n"
-                    f"Think deeply inside <think> tags, then provide "
-                    f"a clean, structured summary in {lang}.\n\n"
-                    f"Summary format:\n"
-                    f"## Video Type\n[Detected genre/theme of the video]\n\n"
-                    f"## Main Topic\n[Main topic, tailored to the video type]\n\n"
+                    f"You are an expert video content analyst. Your summary must be detailed, accurate, and useful.\n\n"
+                    f"**Reasoning (do this inside <think> tags):**\n"
+                    f"1. Use the title and description to anchor the main topic.\n"
+                    f"2. Determine the genre/theme (gaming, educational, tech review, podcast, interview, news, vlog, comedy, documentary, etc.) and tailor your analysis to it.\n"
+                    f"3. Identify the main narrative, key turning points, and evidence from the transcript.\n"
+                    f"4. **Important:** Scan the transcript for any mentioned **sources, books, papers, studies, articles, authors, or references**. List every one you find — they are critical for the reader.\n"
+                    f"5. Synthesize a clear takeaway.\n\n"
+                    f"**Output rules:**\n"
+                    f"- Write the entire summary in {lang}. Use clear, engaging language; avoid filler (e.g. do not start with 'This video is about…').\n"
+                    f"- Aim for 150–400 words for short videos, 300–600 for long. One idea per bullet.\n"
+                    f"- Use the exact section headings below. If no sources/books are mentioned, omit the References section.\n\n"
+                    f"**Summary format (use these headings):**\n"
+                    f"## Video Type\n[Genre/theme]\n\n"
+                    f"## Main Topic\n[Main topic, anchored by metadata and transcript]\n\n"
                     f"## Key Points\n- [Point 1]\n- [Point 2]\n...\n\n"
-                    f"## Conclusion\n[Overall takeaway, relevant to the genre]"
+                    f"## References & Sources Mentioned\n[Every book, paper, article, study, or author mentioned in the video. If none, omit this section.]\n\n"
+                    f"## Conclusion\n[Overall takeaway]"
                 ),
             },
             {
                 "role": "user",
                 "content": (
-                    f"Here is the video metadata:\n{context_block}\n\n"
-                    f"Here is the full transcript:\n\n{transcript}"
+                    f"Video metadata:\n{context_block}\n\n"
+                    f"Full transcript:\n\n{transcript}"
                 ),
             },
         ],
@@ -1406,8 +1406,8 @@ async def index():
 @app.post("/api/v1/summarize")
 async def api_v1_summarize(request: Request):
     """
-    RapidAPI için sync JSON endpoint. POST body: {url, mode?, lang?, source_lang?}
-    mode: summary | subtitle, lang: English, Turkish, vb., source_lang: Auto | en | tr | ...
+    Sync JSON endpoint for RapidAPI. POST body: {url, mode?, lang?, source_lang?}
+    mode: summary | subtitle, lang: English, Turkish, etc., source_lang: Auto | en | tr | ...
     """
     if not _is_rapidapi_request(request):
         return JSONResponse({"error": "x-rapidapi-key header required"}, status_code=401)
@@ -1422,11 +1422,11 @@ async def api_v1_summarize(request: Request):
         return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
 
     url = (body.get("url") or "").strip()
-    # Görünmez karakterleri temizle (Telegram vb. kaynaklı)
+    # Strip invisible chars (e.g. from Telegram)
     url = re.sub(r"[\u200b-\u200d\ufeff]", "", url)
     if not url or not re.search(r"youtube\.com|youtu\.be|twitter\.com|x\.com", url, re.I):
         return JSONResponse({"error": "Valid YouTube or X (Twitter) URL required"}, status_code=400)
-    # YouTube için hemen normalize et; geçersiz linkleri erkenden reddet
+    # Normalize YouTube URL early; reject invalid links
     if "youtube.com" in url or "youtu.be" in url:
         url = _normalize_youtube_url(url)
         if not _extract_youtube_video_id(url):
@@ -1469,7 +1469,7 @@ async def api_v1_summarize(request: Request):
             })
         if stage == "error":
             message = msg.get("message", "Unknown error")
-            # İndirme hatası → 503, kullanıcıya net mesaj
+            # Download error -> 503, clear message to client
             if "downloader" in message.lower() or "download" in message.lower() or "unavailable" in message.lower():
                 return JSONResponse(
                     {"error": "Could not download video. Try another link or try again later."},
@@ -1481,7 +1481,7 @@ async def api_v1_summarize(request: Request):
 @app.post("/api/v1/download_and_transcribe")
 async def api_v1_download_and_transcribe(request: Request):
     """
-    Hermes skill: Önce bu endpoint ile indir + transkript et.
+    Hermes skill: call this first to download + transcribe.
     Body: { url, source_lang? }. Returns: { transcript, segments, meta }.
     """
     if not _is_rapidapi_request(request):
@@ -1534,7 +1534,7 @@ async def api_v1_download_and_transcribe(request: Request):
 @app.post("/api/v1/summarize_from_transcript")
 async def api_v1_summarize_from_transcript(request: Request):
     """
-    Hermes skill: Transkript hazır olduktan sonra özet için.
+    Hermes skill: call after transcript is ready to get summary.
     Body: { transcript, lang?, meta? }. Returns: { summary }.
     """
     if not _is_rapidapi_request(request):

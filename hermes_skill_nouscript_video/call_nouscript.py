@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Hermes skill helper: video indirme + transkript skill tarafından tetiklenir (API adımları).
+Hermes skill helper: video download + transcript triggered by skill (API steps).
 Summary: 1) POST /api/v1/download_and_transcribe  2) POST /api/v1/summarize_from_transcript
-Subtitle: tek çağrı POST /api/v1/summarize (mode=subtitle)
+Subtitle: single call POST /api/v1/summarize (mode=subtitle)
 Usage: python3 call_nouscript.py "<video_url>" [summary|subtitle]
 Reads NOUSCRIPT_API_BASE and RAPIDAPI_KEY from environment.
 """
@@ -48,7 +48,7 @@ def main():
         sys.exit(1)
 
     if mode == "summary":
-        # Adım 1: İndirme + transkript (Hermes skill bu adımı tetikler)
+        # Step 1: Download + transcribe (Hermes skill triggers this)
         try:
             step1 = _post(base, key, "/api/v1/download_and_transcribe", {
                 "url": url,
@@ -62,7 +62,7 @@ def main():
             sys.exit(1)
         transcript = step1.get("transcript", "")
         meta = step1.get("meta") or {}
-        # Adım 2: Transkriptten özet
+        # Step 2: Summary from transcript
         try:
             step2 = _post(base, key, "/api/v1/summarize_from_transcript", {
                 "transcript": transcript,
@@ -82,7 +82,7 @@ def main():
         }
         print(json.dumps(out, ensure_ascii=False))
     else:
-        # Subtitle: tek endpoint (tam pipeline API'de)
+        # Subtitle: single endpoint (full pipeline on API)
         try:
             out = _post(base, key, "/api/v1/summarize", {
                 "url": url,

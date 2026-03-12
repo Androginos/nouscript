@@ -1,61 +1,61 @@
 # Hermes Skill: NouScript Video Summary
 
-Hermes’e video özeti/altyazı aldırtmak için bu skill’i kurun.
+Install this skill so Hermes can request video summaries or subtitles.
 
-## Kurulum (sunucuda)
+## Setup (on server)
 
-1. **Klasörü kopyala**
+1. **Copy the folder**
 
-   Projeden veya repodan `hermes_skill_nouscript_video` içeriğini Hermes skills dizinine kopyalayıp **nouscript-video** adıyla kaydedin:
+   Copy the contents of `hermes_skill_nouscript_video` into the Hermes skills directory as **nouscript-video**:
 
    ```bash
-   # Örnek: proje /opt/nouscript ise
+   # Example: project at /opt/nouscript
    mkdir -p ~/.hermes/skills/nouscript-video
    cp /opt/nouscript/hermes_skill_nouscript_video/SKILL.md ~/.hermes/skills/nouscript-video/
    cp /opt/nouscript/hermes_skill_nouscript_video/call_nouscript.py ~/.hermes/skills/nouscript-video/
    chmod +x ~/.hermes/skills/nouscript-video/call_nouscript.py
    ```
 
-2. **Ortam değişkenleri**
+2. **Environment variables**
 
-   `~/.hermes/.env` içinde şunlar olsun:
+   In `~/.hermes/.env`:
 
    ```env
    NOUSCRIPT_API_BASE=https://nouscript.com
    RAPIDAPI_KEY=your_rapidapi_key_here
    ```
 
-   (Aynı sunucuda NouScript çalışıyorsa `RAPIDAPI_KEY` zaten vardır; aynısını kullanın.)
+   (If NouScript runs on the same server, reuse the existing `RAPIDAPI_KEY`.)
 
-3. **Hermes gateway’i yeniden başlat**
+3. **Restart Hermes gateway**
 
    ```bash
    hermes gateway stop
    hermes gateway start
    ```
 
-## Kullanım
+## Usage
 
-- **Telegram’da @Nouscript_bot** (Hermes) ile konuşun.
-- Örnek: “Şu videonun özetini çıkar: https://youtube.com/watch?v=...”
-- Veya: `/nouscript-video` yazıp linki verin.
-- Agent skill’i yükleyip `call_nouscript.py` ile API’yi çağırır ve özet/altyazı metnini size döner.
+- In **Telegram**, talk to **@Nouscript_bot** (Hermes).
+- Example: “Summarize this video: https://youtube.com/watch?v=...”
+- Or send `/nouscript-video` and then the link.
+- The agent loads the skill and calls the API via `call_nouscript.py`, then returns the summary or subtitle text.
 
-## Not
+## Notes
 
-- **Özet (summary)** için skill iki API adımını tetikler: önce **indirme + transkript**, sonra **transkriptten özet**. Altyazı (subtitle) için tek çağrı (tam pipeline) kullanılır.
-- Uzun videolarda 1–5 dakika sürebilir; agent bekleyecektir.
+- For **summary**, the skill triggers two API steps: first **download + transcribe**, then **summary from transcript**. For **subtitles**, a single full-pipeline call is used.
+- Long videos may take 1–5 minutes; the agent will wait.
 
-## Teyit: Video indirme ve transcript Hermes skill ile
+## Confirmation: Video download and transcript via Hermes skill
 
-**İndirme ve transkripsiyon, Hermes agent skill’in tetiklediği API adımlarıyla yapılır.**
+**Download and transcription are triggered by the Hermes agent skill’s API calls.**
 
-1. Kullanıcı Telegram’da @Nouscript_bot (Hermes)’e video linki + “özet çıkar” der.
-2. Hermes bu skill’i kullanır; `call_nouscript.py` çalışır.
-3. **Özet modunda** skill sırayla şu iki endpoint’i çağırır:
-   - **1) `POST /api/v1/download_and_transcribe`** — Video indirme (yt-dlp / RapidAPI) + ses transkripsiyonu (Whisper). Sonuç: transcript + meta.
-   - **2) `POST /api/v1/summarize_from_transcript`** — Transkript metninden özet (Groq/Nous). Sonuç: summary.
-4. **Altyazı modunda** skill tek çağrı yapar: `POST /api/v1/summarize` (mode=subtitle); indirme ve transkript API’de yapılır.
-5. API sonucu skill’e döner; Hermes kullanıcıya metni iletir.
+1. User sends a video link and “summarize” to @Nouscript_bot (Hermes) on Telegram.
+2. Hermes uses this skill; `call_nouscript.py` runs.
+3. In **summary mode** the skill calls, in order:
+   - **1) `POST /api/v1/download_and_transcribe`** — Video download (yt-dlp / RapidAPI) + audio transcription (Whisper). Returns: transcript + meta.
+   - **2) `POST /api/v1/summarize_from_transcript`** — Summary from transcript (Groq/Nous). Returns: summary.
+4. In **subtitle mode** the skill makes a single call: `POST /api/v1/summarize` (mode=subtitle); download and transcript are done on the API.
+5. The API result is returned to the skill; Hermes delivers the text to the user.
 
-Yani **video indirme ve transcript**, Hermes skill’in açıkça çağırdığı ilk adım (`download_and_transcribe`) ile yapılır; özet adımı ayrı bir API çağrısıdır. Web (nouscript.com) ve Telegram Sumbot ise tek endpoint (`/api/v1/summarize`) ile tam pipeline kullanmaya devam eder.
+So **video download and transcript** are performed by the first step (`download_and_transcribe`) that the skill explicitly calls; the summary step is a separate API call. The website (nouscript.com) and the Telegram Sumbot continue to use the single endpoint (`/api/v1/summarize`) for the full pipeline.

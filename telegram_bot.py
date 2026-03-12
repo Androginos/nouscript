@@ -1,6 +1,6 @@
 """
-NouScript Telegram Bot — Video link alır, özet veya altyazı seçtirir, .txt/.srt gönderir.
-Hermes katmanı şimdilik yok; doğrudan NouScript API kullanılır.
+NouScript Telegram Bot — Accepts video links, offers summary or subtitles, sends .txt/.srt.
+Uses NouScript API directly (RapidAPI key). Separate from Hermes agent bot.
 """
 import io
 import os
@@ -27,7 +27,7 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 API_BASE = os.getenv("NOUSCRIPT_API_BASE", "").rstrip("/")
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "").strip()
 
-# Geçerli video linki (YouTube, X/Twitter) — video ID ve query string dahil tam URL
+# Valid video URL (YouTube, X/Twitter) including video ID and query string
 URL_PATTERN = re.compile(
     r"https?://(?:www\.)?(?:youtube\.com/watch\?v=[^\s&]+|youtu\.be/[a-zA-Z0-9_-]+(?:\?[^\s]*)?|(?:twitter|x)\.com/\S+/status/\d+)",
     re.I,
@@ -58,8 +58,16 @@ def extract_url(text: str | None) -> str | None:
     return m.group(0).strip() if m else None
 
 
-async def call_nouscript_api(url: str, mode: str) -> dict:
-    """NouScript /api/v1/summarize çağrısı."""
+# 14 languages for output (summary/subtitles) — same as API LANG_CODE_MAP
+SUPPORTED_LANGS = [
+    "English", "Turkish", "Spanish", "French", "German", "Portuguese",
+    "Russian", "Japanese", "Korean", "Chinese", "Arabic", "Hindi",
+    "Italian", "Dutch",
+]
+
+
+async def call_nouscript_api(url: str, mode: str, lang: str = "English") -> dict:
+    """Call NouScript /api/v1/summarize with chosen language."""
     if not API_BASE or not RAPIDAPI_KEY:
         raise RuntimeError("NOUSCRIPT_API_BASE or RAPIDAPI_KEY is not set in .env")
 
@@ -68,7 +76,7 @@ async def call_nouscript_api(url: str, mode: str) -> dict:
     payload = {
         "url": url,
         "mode": mode,
-        "lang": "English",
+        "lang": lang,
         "source_lang": "Auto",
     }
 
@@ -130,83 +138,121 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         raise
 
 
+def _language_keyboard(mode: str) -> InlineKeyboardMarkup:
+    """Build inline keyboard for 14 languages. callback_data = mode:lang e.g. summary:Turkish."""
+    buttons = [
+        InlineKeyboardButton(lang, callback_data=f"{mode}:{lang}")
+        for lang in SUPPORTED_LANGS
+    ]
+    # 7 per row for 2 rows
+    rows = [buttons[i : i + 7] for i in range(0, len(buttons), 7)]
+    return InlineKeyboardMarkup(rows)
+
+
 async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         query = update.callback_query
         await query.answer()
 
         chat_id = update.effective_chat.id
-        choice = query.data  # "summary" or "subtitle"
+        data_payload = query.data  # "summary", "subtitle", or "summary:English", "subtitle:Turkish"
 
-        url = pending_url.pop(chat_id, None)
-        if not url:
-            await query.edit_message_text("This link has expired. Please send the video link again.")
-            return
-
-        await query.edit_message_text("Processing your video, this may take a few minutes…")
-
-        try:
-            data = await call_nouscript_api(url, mode=choice)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            await query.edit_message_text(f"Something went wrong: {e}")
-            return
-
-        if choice == "summary":
-            content = (data.get("summary") or "").strip()
-            if not content:
-                await query.edit_message_text("Could not generate a summary.")
+        # Step 1: user chose Summary or Subtitle → show language selection (do not pop url)
+        if data_payload in ("summary", "subtitle"):
+            if not pending_url.get(chat_id):
+                await query.edit_message_text("This link has expired. Please send the video link again.")
                 return
-            filename = "summary.txt"
-            # Özeti hem mesaj metni hem .txt olarak ver (hızlı okuma + dosya)
-            msg_limit = 4090  # Telegram mesaj sınırı 4096
+            await query.edit_message_text(
+                "Choose output language:",
+                reply_markup=_language_keyboard(data_payload),
+            )
+            return
+
+        # Step 2: user chose language (e.g. summary:Turkish)
+        if ":" in data_payload:
+            mode, lang = data_payload.split(":", 1)
+            if mode not in ("summary", "subtitle") or lang not in SUPPORTED_LANGS:
+                await query.edit_message_text("Invalid choice. Please send the video link again.")
+                return
+            url = pending_url.pop(chat_id, None)
+            if not url:
+                await query.edit_message_text("This link has expired. Please send the video link again.")
+                return
+
+            await query.edit_message_text("Processing your video, this may take a few minutes…")
+
             try:
-                if len(content) <= msg_limit:
-                    await query.edit_message_text(content)
-                else:
+                data = await call_nouscript_api(url, mode=mode, lang=lang)
+            except RuntimeError as e:
+                msg = str(e)
+                print(f"[Telegram bot] API error: {msg}", file=sys.stdout)
+                if "download" in msg.lower() or "unavailable" in msg.lower() or "503" in msg:
                     await query.edit_message_text(
-                        content[: msg_limit - 50].rstrip() + "\n\n… 📎 Tam metin ekte summary.txt dosyasında."
+                        "Could not download video. Try another link or try again later."
                     )
-            except (TimedOut, NetworkError, RetryAfter) as e:
-                print(f"[Telegram API] edit_message_text failed: {type(e).__name__}: {e}", file=sys.stdout)
-                await query.edit_message_text("Summary ready. Sending file…")
-            buf = io.BytesIO(content.encode("utf-8"))
-            buf.name = filename
-            try:
-                await context.bot.send_document(
-                    chat_id=chat_id,
-                    document=buf,
-                    filename=filename,
-                    caption="summary.txt",
-                )
-            except (TimedOut, NetworkError, RetryAfter) as e:
-                print(f"[Telegram API] send_document failed: {type(e).__name__}: {e}", file=sys.stdout)
-                await query.edit_message_text(
-                    "Summary is ready but sending the file failed (timeout/network). You can try again or use the website."
-                )
+                else:
+                    await query.edit_message_text(f"Something went wrong: {msg[:200]}")
                 return
-        else:
-            content = (data.get("subtitle") or "").strip()
-            if not content:
-                await query.edit_message_text("Could not generate subtitles.")
+            except Exception as e:
+                print(f"[Telegram bot] Unexpected error: {type(e).__name__}: {e}", file=sys.stdout)
+                traceback.print_exc(file=sys.stdout)
+                await query.edit_message_text("Something went wrong. Please try again later.")
                 return
-            filename = "subtitles.srt" if re.match(r"^\d+\s", content) else "subtitles.txt"
-            buf = io.BytesIO(content.encode("utf-8"))
-            buf.name = filename
-            try:
-                await context.bot.send_document(
-                    chat_id=chat_id,
-                    document=buf,
-                    filename=filename,
-                    caption="Here is your file.",
-                )
-                await query.edit_message_text("Done. You can download the file above.")
-            except (TimedOut, NetworkError, RetryAfter) as e:
-                print(f"[Telegram API] send_document failed: {type(e).__name__}: {e}", file=sys.stdout)
-                await query.edit_message_text(
-                    "Subtitles are ready but sending the file failed (timeout/network). Please try again."
-                )
-                return
+
+            if mode == "summary":
+                content = (data.get("summary") or "").strip()
+                if not content:
+                    await query.edit_message_text("Could not generate a summary.")
+                    return
+                filename = "summary.txt"
+                msg_limit = 4090
+                try:
+                    if len(content) <= msg_limit:
+                        await query.edit_message_text(content)
+                    else:
+                        await query.edit_message_text(
+                            content[: msg_limit - 50].rstrip() + "\n\n… 📎 Full text in attached summary.txt"
+                        )
+                except (TimedOut, NetworkError, RetryAfter) as e:
+                    print(f"[Telegram API] edit_message_text failed: {type(e).__name__}: {e}", file=sys.stdout)
+                    await query.edit_message_text("Summary ready. Sending file…")
+                buf = io.BytesIO(content.encode("utf-8"))
+                buf.name = filename
+                try:
+                    await context.bot.send_document(
+                        chat_id=chat_id,
+                        document=buf,
+                        filename=filename,
+                        caption="summary.txt",
+                    )
+                except (TimedOut, NetworkError, RetryAfter) as e:
+                    print(f"[Telegram API] send_document failed: {type(e).__name__}: {e}", file=sys.stdout)
+                    await query.edit_message_text(
+                        "Summary is ready but sending the file failed (timeout/network). You can try again or use the website."
+                    )
+                    return
+            else:
+                content = (data.get("subtitle") or "").strip()
+                if not content:
+                    await query.edit_message_text("Could not generate subtitles.")
+                    return
+                filename = "subtitles.srt" if re.match(r"^\d+\s", content) else "subtitles.txt"
+                buf = io.BytesIO(content.encode("utf-8"))
+                buf.name = filename
+                try:
+                    await context.bot.send_document(
+                        chat_id=chat_id,
+                        document=buf,
+                        filename=filename,
+                        caption="Here is your file.",
+                    )
+                    await query.edit_message_text("Done. You can download the file above.")
+                except (TimedOut, NetworkError, RetryAfter) as e:
+                    print(f"[Telegram API] send_document failed: {type(e).__name__}: {e}", file=sys.stdout)
+                    await query.edit_message_text(
+                        "Subtitles are ready but sending the file failed (timeout/network). Please try again."
+                    )
+                    return
     except (TimedOut, NetworkError, RetryAfter) as e:
         print(f"[Telegram API] {type(e).__name__}: {e}", file=sys.stdout)
         try:
@@ -220,7 +266,7 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Yakalanmamış hataları terminale yazdır (journalctl ile takip için)."""
+    """Log unhandled errors to stdout (for journalctl)."""
     err = getattr(context, "error", None)
     if err:
         print(f"[Telegram bot ERROR] {type(err).__name__}: {err}", file=sys.stdout)
@@ -255,7 +301,8 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_button))
     app.add_error_handler(error_handler)
 
-    print("NouScript Telegram bot is running. Press Ctrl+C to stop.")
+    print("NouScript Telegram bot is running. Press Ctrl+C to stop.", file=sys.stdout)
+    print("[Telegram bot] Started — log prefix [Telegram bot] / [API 5xx] active.", file=sys.stdout)
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

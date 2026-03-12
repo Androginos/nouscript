@@ -57,19 +57,19 @@ def main():
                 print(f"Uyarı: {domain} cookies alınamadı: {e}")
 
     if not all_cookies:
-        print("YouTube cookie bulunamadı. Önce tarayıcıda youtube.com'a giriş yapın.")
-        print("Chrome kullanıyorsanız tarayıcıyı tamamen kapatıp tekrar deneyin.")
+        print("No YouTube cookie found. Log in to youtube.com in the browser first.")
+        print("If using Chrome, close the browser completely and try again.")
         sys.exit(1)
 
-    # LF newlines (Linux sunucu uyumluluğu - yt-dlp CRLF'de hata verebilir)
+    # LF newlines (Linux server compatibility; yt-dlp can fail on CRLF)
     with open("cookies.txt", "w", newline="\n") as f:
         f.write("# Netscape HTTP Cookie File\n")
         for c in all_cookies:
             domain = "." + c.domain if not c.domain.startswith(".") else c.domain
             f.write(f"{domain}\tTRUE\t{c.path or '/'}\tFALSE\t{c.expires or 0}\t{c.name}\t{c.value}\n")
 
-    print("cookies.txt oluşturuldu.")
-    print("Sunucuya yükleyin: scp cookies.txt root@SUNUCU_IP:/opt/nouscript/")
+    print("cookies.txt created.")
+    print("Upload to server: scp cookies.txt root@SERVER_IP:/opt/nouscript/")
     print("Veya Hostinger Dosya Yöneticisi ile /opt/nouscript/ klasörüne yükleyin.")
 
 if __name__ == "__main__":
