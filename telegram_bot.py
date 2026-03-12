@@ -194,7 +194,14 @@ def main() -> None:
     if not TOKEN:
         raise SystemExit("TELEGRAM_BOT_TOKEN is not set in .env")
 
-    app = Application.builder().token(TOKEN).build()
+    builder = (
+        Application.builder()
+        .token(TOKEN)
+        .connect_timeout(30.0)
+        .read_timeout(60.0)
+        .write_timeout(60.0)
+    )
+    app = builder.build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(handle_button))
