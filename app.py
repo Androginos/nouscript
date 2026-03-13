@@ -32,7 +32,7 @@ from openai import OpenAI
 RATE_LIMIT_MAX = 10
 RATE_LIMIT_MAX_UNVERIFIED = 5
 RATE_LIMIT_MAX_RAPIDAPI = 100  # per RapidAPI key
-RATE_LIMIT_WINDOW = 3600  # 1 hour
+RATE_LIMIT_WINDOW = 86400  # 24 hours (1 day)
 rate_limit_store: dict[str, list[float]] = {}  # ip/key -> [timestamps]
 
 CHUNK_DURATION = 300
@@ -1672,7 +1672,7 @@ async def process(
         rate_key = ip
 
     if not _consume_request(rate_key, limit):
-        msg = f"Rate limit reached ({limit}/hour)." + ("" if verified else " Complete bot verification for higher limits.")
+        msg = f"Rate limit reached ({limit}/day)." + ("" if verified else " Complete bot verification for higher limits.")
         return JSONResponse({"error": msg}, status_code=429)
 
     progress_queue: asyncio.Queue = asyncio.Queue()

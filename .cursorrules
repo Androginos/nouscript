@@ -39,7 +39,7 @@
 ## 7. Security & Rate Limiting
 - **Cloudflare Turnstile:** Bot koruması için entegre. Site key frontend'de, secret key `.env`'de saklanır.
 - **Turnstile Fallback:** Turnstile token varsa Cloudflare'e doğrulatılır; yoksa (widget yüklenemedi) rate limit sıkılaştırılır.
-- **IP Rate Limiting:** Turnstile doğrulanmış kullanıcılar saatte 5, doğrulanmamışlar saatte 3 sorgu yapabilir.
+- **IP Rate Limiting:** Turnstile doğrulanmış kullanıcılar günde 10, doğrulanmamışlar günde 5 sorgu yapabilir.
 - **Rate Counter:** Kullanıcıya kalan sorgu hakkı frontend'de gösterilir.
 
 ## 8. Error Handling & Safety

@@ -179,15 +179,15 @@
       <span class="alpha-badge">ALPHA</span>
     </div>
 
-    <p>NouScript is an experimental research project designed to redefine how we consume and synthesize information from video and audio content across platforms. By leveraging the state-of-the-art <strong style="color:var(--text)">Hermes-4-70B</strong> model from <strong style="color:var(--text)">Nous Research</strong>, we provide deep-reasoning summaries and high-precision translations from <strong style="color:var(--text)">YouTube videos</strong>, <strong style="color:var(--text)">X (Twitter) posts</strong>, and <strong style="color:var(--text)">recorded Twitter Spaces</strong>.</p>
+    <p>NouScript is built on <strong style="color:var(--text)">Hermes Agent</strong>. The agent and its <strong style="color:var(--text)">nouscriptvideo</strong> skill orchestrate the full pipeline: <strong style="color:var(--text)">download</strong> (YouTube, X, Spaces) → <strong style="color:var(--text)">transcription</strong> → <strong style="color:var(--text)">summary or subtitles</strong> — by calling the NouScript API. The actual deep-reasoning summaries and translations are produced by the <strong style="color:var(--text)">Hermes-4-70B</strong> model from Nous Research; the agent triggers the workflow, the model does the reasoning and text.</p>
 
-    <p>Please note that this platform is currently in <strong style="color:var(--accent)">Active Development (Alpha)</strong>. It is intended strictly for research, learning, and developmental purposes. As we continue to refine the in-memory processing and reasoning capabilities, your feedback is invaluable to us.</p>
+    <p>This site uses the same API that powers the Hermes skill and Telegram Sumbot. The platform is in <strong style="color:var(--accent)">Active Development (Alpha)</strong> for research and learning. Your feedback helps us refine the pipeline and reasoning capabilities.</p>
 
     <h3>Connect & Collaborate</h3>
     <p>We are a community-driven initiative. If you encounter bugs, have feature suggestions, or wish to discuss the underlying architecture, reach out to the developers.</p>
 
     <h3>Security & Fair Use</h3>
-    <p>To ensure the stability of the research environment and prevent resource abuse, NouScript employs <strong style="color:var(--text)">Cloudflare Turnstile</strong> bot protection and a rate limit of <strong style="color:var(--text)">5 queries per hour</strong> per user. These measures are strictly for security and fair usage purposes.</p>
+    <p>To ensure the stability of the research environment and prevent resource abuse, NouScript employs <strong style="color:var(--text)">Cloudflare Turnstile</strong> bot protection and a rate limit of <strong style="color:var(--text)">10 queries per day</strong> per user. These measures are strictly for security and fair usage purposes.</p>
 
     <p style="margin-bottom:4px">If you have questions or need support, reach out to the developers on X or Discord:</p>
     <div class="dev-link">
@@ -197,7 +197,7 @@
 
     <p style="text-align:center;margin-top:14px;margin-bottom:0;font-size:.78rem;color:var(--text-muted)">For more information visit <a href="https://portal.nousresearch.com/models" target="_blank" style="color:var(--accent);text-decoration:none">portal.nousresearch.com/models</a></p>
 
-    <div class="popup-tagline">Developed with Hermes-4-70B by Nous Research. Powered by Innovation.</div>
+    <div class="popup-tagline">Hermes Agent–driven pipeline · Hermes-4-70B by Nous Research. Powered by Innovation.</div>
 
     <button type="button" class="enter-btn" id="enterBtn">Enter NouScript</button>
   </div>
@@ -265,7 +265,7 @@
         </div>
       </label>
     </div>
-    <div class="rate-counter">Queries remaining: <span class="count" id="rateCount">-</span> / <span id="rateMax">10</span> per hour</div>
+    <div class="rate-counter">Queries remaining: <span class="count" id="rateCount">-</span> / <span id="rateMax">10</span> per day</div>
     <form id="form" class="input-row" autocomplete="off">
       <input id="urlInput" type="text" placeholder="Paste a YouTube or X (Twitter) video link..." required />
       <button class="btn" type="submit" id="submitBtn">Process</button>

@@ -30,7 +30,7 @@ Without this **model’s** reasoning capabilities, NouScript would be limited to
 | **Video language** | Source language selection for better transcription accuracy |
 | **Export** | `.txt` for summaries, `.srt` for subtitles |
 | **Query history** | Local storage of recent queries (up to 20) |
-| **Security** | Cloudflare Turnstile + IP rate limiting (5 queries/hour) |
+| **Security** | Cloudflare Turnstile + IP rate limiting (10 queries/day) |
 | **Telegram Bot** | Dedicated bot for summary/subtitles (link → choice → file + optional in-chat text) |
 | **Hermes Agent & Skills** | Video summary/subtitle via Hermes agent; skill triggers download+transcribe then summarize (two-step API) |
 | **RapidAPI** | Sync JSON API for integrations (`/api/v1/summarize`, plus `download_and_transcribe` and `summarize_from_transcript` for skill use) |
